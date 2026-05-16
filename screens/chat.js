@@ -85,7 +85,7 @@ function renderMessages(messages, myVid) {
       html += `<div class="date-pill"><span>${label}</span></div>`;
       lastDate = label;
     }
-    const isOut = message.senderVid === myVid;
+    const isOut = Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid);
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
@@ -148,7 +148,7 @@ function startPresencePolling(contactVid) {
 function showMsgMenu(messageId) {
   const message = currentChatMessages.find((item) => item.id === messageId);
   if (!message) return;
-  const mine = message.senderVid === Auth.getVid();
+  const mine = Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(Auth.getVid());
   const options = mine
     ? [
         ["Copy", () => copyMessage(message.content)],

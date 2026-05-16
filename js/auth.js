@@ -6,7 +6,7 @@ const Auth = {
   PHOTO_KEY: "reach_profile_photo",
 
   getToken: () => localStorage.getItem(Auth.TOKEN_KEY),
-  getVid: () => window.PREVIEW_MODE ? "12345678" : localStorage.getItem(Auth.VID_KEY),
+  getVid: () => window.PREVIEW_MODE ? "12345678" : Utils.normalizeVid(localStorage.getItem(Auth.VID_KEY)),
   getName: () => window.PREVIEW_MODE ? "Rahul" : localStorage.getItem(Auth.NAME_KEY),
   getAvatar: () => window.PREVIEW_MODE ? 1 : parseInt(localStorage.getItem(Auth.AVATAR_KEY) || "1", 10),
   getPhoto: () => localStorage.getItem(Auth.PHOTO_KEY) || "",
@@ -15,7 +15,7 @@ const Auth = {
   saveAccount(account) {
     const user = account.user || account.account || account;
     const token = account.session_token || account.sessionToken || user.session_token || user.sessionToken || "";
-    const vid = String(user.vid || account.vid || "").replace(/[^0-9]/g, "").slice(0, 8);
+    const vid = Utils.normalizeVid(user.vid || account.vid || "");
     localStorage.setItem(Auth.TOKEN_KEY, token);
     localStorage.setItem(Auth.VID_KEY, vid);
     localStorage.setItem(Auth.NAME_KEY, user.display_name || user.displayName || account.display_name || account.displayName || "REACH User");

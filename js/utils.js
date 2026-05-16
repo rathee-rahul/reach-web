@@ -32,11 +32,15 @@ const Utils = {
       .replace(/'/g, "&#39;");
   },
 
+  normalizeVid(value) {
+    return String(value ?? "").replace(/[^0-9]/g, "").slice(0, 8);
+  },
+
   normalizeMessage(raw) {
     return {
       id: raw.id || "",
       chatId: raw.chat_id || raw.chatId || "",
-      senderVid: raw.sender_vid || raw.senderVid || "",
+      senderVid: Utils.normalizeVid(raw.sender_vid || raw.senderVid || raw.sender || raw.from_vid || raw.fromVid || ""),
       contentType: raw.content_type || raw.contentType || "text",
       content: raw.content || "",
       sentAt: raw.sent_at || raw.sentAt || "",
@@ -48,7 +52,7 @@ const Utils = {
   },
 
   statusIcon(msg, myVid) {
-    if (msg.senderVid !== myVid) return "";
+    if (Utils.normalizeVid(msg.senderVid) !== Utils.normalizeVid(myVid)) return "";
     if (msg.seenAt) return '<span class="bubble-ticks seen">✓✓</span>';
     if (msg.deliveredAt) return '<span class="bubble-ticks">✓✓</span>';
     return '<span class="bubble-ticks">✓</span>';

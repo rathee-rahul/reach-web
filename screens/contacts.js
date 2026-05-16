@@ -1,0 +1,86 @@
+Screen.contacts = async function() {
+  document.getElementById("app").innerHTML = `
+    <div class="screen">
+      <div class="header">
+        <span class="header-title">Contacts</span>
+        <button class="header-icon-btn primary" onclick="Screen.addContact()" title="Add contact">${Icon("plus")}</button>
+      </div>
+      <div class="scroll" id="contacts-list"><div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div></div>
+      ${BottomNav("contacts")}
+    </div>`;
+  try {
+    const data = await Api.listContacts(Auth.getToken());
+    const contacts = data.contacts || data || [];
+    const el = document.getElementById("contacts-list");
+    if (!contacts.length) {
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No contacts yet</div>';
+      return;
+    }
+    el.innerHTML = contacts.map((contact) => {
+      const name = contact.display_name || contact.displayName || "REACH User";
+      const vid = contact.vid || contact.contact_vid || contact.contactVid || "";
+      const chatId = contact.chat_id || contact.chatId || "";
+      return `
+        <div class="row" onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')">
+          ${Avatar(name, contact.avatar_id || contact.avatarId || 1, 44, contact.profile_photo || contact.profilePhoto || "")}
+          <div class="row-info">
+            <div class="row-name">${Utils.escape(name)}</div>
+            <div class="row-sub">ID ${Utils.escape(vid)}</div>
+          </div>
+        </div>`;
+    }).join("");
+  } catch (error) {
+    showToast(error.message || "Failed to load contacts");
+  }
+};
+
+Screen.addContact = function() {
+  document.getElementById("app").innerHTML = `
+    <div class="screen">
+      <div class="header">
+        <span class="header-title">Add Contact</span>
+      </div>
+      <div class="scroll" style="padding:24px 20px;display:flex;flex-direction:column;gap:14px;">
+        <input id="search-vid" type="text" inputmode="numeric" placeholder="Enter REACH ID (8 digits)" maxlength="8">
+        <button class="send-btn wide" id="search-btn" onclick="searchVid()" title="Find contact">${Icon("search")}</button>
+        <div id="search-result"></div>
+      </div>
+      ${BottomNav("contacts")}
+    </div>`;
+};
+
+async function searchVid() {
+  const vid = document.getElementById("search-vid").value.replace(/\D/g, "");
+  const btn = document.getElementById("search-btn");
+  const result = document.getElementById("search-result");
+  if (vid.length !== 8) return showToast("Enter 8 digit REACH ID");
+  btn.disabled = true;
+  try {
+    const data = await Api.findContact(Auth.getToken(), vid);
+    const contact = data.contact || data;
+    const name = contact.display_name || contact.displayName || "REACH User";
+    result.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:0.5px solid var(--line);border-radius:12px;padding:14px;">
+        ${Avatar(name, contact.avatar_id || contact.avatarId || 1, 48, contact.profile_photo || contact.profilePhoto || "")}
+        <div style="flex:1;">
+          <div style="font-size:16px;font-weight:700;">${Utils.escape(name)}</div>
+          <div style="font-size:12px;color:var(--muted);">ID ${Utils.escape(contact.vid || vid)}</div>
+        </div>
+        <button onclick="sendReq('${contact.vid || vid}')" class="header-icon-btn primary" title="Send request">${Icon("plus")}</button>
+      </div>`;
+  } catch (error) {
+    result.innerHTML = `<div style="color:var(--red);font-size:13px;">${Utils.escape(error.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function sendReq(vid) {
+  try {
+    await Api.sendRequest(Auth.getToken(), vid);
+    showToast("Request sent");
+    go("contacts");
+  } catch (error) {
+    showToast(error.message);
+  }
+}

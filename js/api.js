@@ -1,0 +1,107 @@
+const SUPABASE_URL = "https://eqocgylkivhkyqeqggff.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Zl8gfZ21GaarCuM840W-Iw_hYxIREtV";
+const APK_DRIVE_URL = "";
+const LOCAL_PREVIEW_HOSTS = ["127.0.0.1", "localhost"];
+const PREVIEW_MODE = LOCAL_PREVIEW_HOSTS.includes(window.location.hostname)
+  && new URLSearchParams(window.location.search).get("preview") === "1";
+window.PREVIEW_MODE = PREVIEW_MODE;
+
+const PreviewData = {
+  contacts: [
+    { vid: "87654321", displayName: "Rahul", avatarId: 1, chatId: "preview-chat-1", lastMessage: "Okay, testing REACH web", lastMessageAt: new Date().toISOString(), unreadCount: 2 },
+    { vid: "45671234", displayName: "Ankit", avatarId: 3, chatId: "preview-chat-2", lastMessage: "See you later", lastMessageAt: new Date(Date.now() - 3600000).toISOString(), unreadCount: 0 },
+  ],
+  requests: [
+    { id: "req-1", vid: "11223344", displayName: "New Contact", avatarId: 4 },
+  ],
+  messages: [
+    { id: "m1", chatId: "preview-chat-1", senderVid: "87654321", contentType: "text", content: "Hey, can you see this?", sentAt: new Date(Date.now() - 900000).toISOString() },
+    { id: "m2", chatId: "preview-chat-1", senderVid: "12345678", contentType: "text", content: "Yes, web preview is open.", sentAt: new Date(Date.now() - 780000).toISOString(), deliveredAt: new Date(Date.now() - 760000).toISOString(), seenAt: new Date(Date.now() - 700000).toISOString() },
+    { id: "m3", chatId: "preview-chat-1", senderVid: "87654321", contentType: "text", content: "Good. Make it exactly like app.", sentAt: new Date(Date.now() - 300000).toISOString() },
+  ],
+};
+
+async function callFunction(name, body) {
+  if (PREVIEW_MODE) return previewFunction(name, body || {});
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || "Request failed");
+  return data;
+}
+
+async function previewFunction(name, body) {
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  if (name === "login" || name === "generate-vid") {
+    return { account: { vid: "12345678", displayName: "Rahul", display_name: "Rahul", avatarId: 1, avatar_id: 1, sessionToken: "preview-token", session_token: "preview-token" } };
+  }
+  if (name === "list-contacts") return { contacts: PreviewData.contacts };
+  if (name === "list-requests") return { requests: PreviewData.requests };
+  if (name === "list-messages") return { messages: PreviewData.messages };
+  if (name === "get-contact-presence") return { online: true, visible: true, lastSeenAt: new Date().toISOString() };
+  if (name === "get-privacy-settings") return { settings: { read_receipts_enabled: true, last_seen_enabled: true, notify_direct_messages: true } };
+  if (name === "list-blocked-users") return { blocked: [{ vid: "99887766", displayName: "Blocked User", avatarId: 5 }] };
+  if (name === "request-email-verification") return { ok: true };
+  if (name === "verify-recovery-email") return { recovery_email: body.email, recovery_email_verified: true };
+  return {};
+}
+
+const Api = {
+  generateVid: (displayName, password, avatarId, recoveryEmail = "", googleIdToken = "", dateOfBirth = "", gender = "") =>
+    callFunction("generate-vid", {
+      display_name: displayName,
+      password,
+      avatar_id: avatarId,
+      recovery_email: recoveryEmail,
+      google_id_token: googleIdToken,
+      date_of_birth: dateOfBirth,
+      gender,
+      fcm_token: null,
+    }),
+
+  login: (vid, password) => callFunction("login", { vid, password, device_fp: "web" }),
+  deleteAccount: (sessionToken) => callFunction("delete-account", { session_token: sessionToken }),
+
+  findContact: (sessionToken, vid) => callFunction("find-contact", { session_token: sessionToken, vid }),
+  sendRequest: (sessionToken, receiverVid) => callFunction("send-request", { session_token: sessionToken, receiver_vid: receiverVid }),
+  listContacts: (sessionToken) => callFunction("list-contacts", { session_token: sessionToken }),
+  setContactName: (sessionToken, contactVid, name) => callFunction("set-contact-name", { session_token: sessionToken, contact_vid: contactVid, name }),
+
+  listRequests: (sessionToken) => callFunction("list-requests", { session_token: sessionToken }),
+  respondRequest: (sessionToken, requestId, accept) => callFunction("respond-request", { session_token: sessionToken, request_id: requestId, accept }),
+
+  listMessages: (sessionToken, chatId) => callFunction("list-messages", { session_token: sessionToken, chat_id: chatId }),
+  sendMessage: (sessionToken, chatId, content) => callFunction("send-message", { session_token: sessionToken, chat_id: chatId, content_type: "text", content }),
+  markSeen: (sessionToken, chatId) => callFunction("mark-seen", { session_token: sessionToken, chat_id: chatId }),
+  editMessage: (sessionToken, messageId, content) => callFunction("edit-message", { session_token: sessionToken, message_id: messageId, content }),
+  deleteMessage: (sessionToken, messageId, scope = "me") => callFunction("delete-message", { session_token: sessionToken, message_id: messageId, scope }),
+
+  listGroups: (sessionToken) => callFunction("list-groups", { session_token: sessionToken }),
+  listGroupMessages: (sessionToken, groupId) => callFunction("list-group-messages", { session_token: sessionToken, group_id: groupId }),
+  getGroupInfo: (sessionToken, groupId) => callFunction("get-group-info", { session_token: sessionToken, group_id: groupId }),
+
+  getContactPresence: (sessionToken, contactVid) => callFunction("get-contact-presence", { session_token: sessionToken, contact_vid: contactVid }),
+  touchLastSeen: (sessionToken) => callFunction("touch-last-seen", { session_token: sessionToken }),
+  setOffline: (sessionToken) => callFunction("set-offline", { session_token: sessionToken }),
+  setTyping: (sessionToken, chatId, isTyping) => callFunction("set-chat-typing", { session_token: sessionToken, chat_id: chatId, is_typing: isTyping }),
+  getTyping: (sessionToken, chatId) => callFunction("get-chat-typing", { session_token: sessionToken, chat_id: chatId }),
+
+  getPrivacySettings: (sessionToken) => callFunction("get-privacy-settings", { session_token: sessionToken }),
+  updatePrivacySettings: (sessionToken, settings) => callFunction("update-privacy-settings", { session_token: sessionToken, ...settings }),
+  requestEmailVerification: (sessionToken, email) => callFunction("request-email-verification", { session_token: sessionToken, email }),
+  verifyRecoveryEmail: (sessionToken, email, code) => callFunction("verify-recovery-email", { session_token: sessionToken, email, code }),
+
+  blockUser: (sessionToken, targetVid, blockType) => callFunction("block-user", { session_token: sessionToken, target_vid: targetVid, block_type: blockType }),
+  reportUser: (sessionToken, targetVid, reason) => callFunction("report-user", { session_token: sessionToken, target_vid: targetVid, reason }),
+  listBlockedUsers: (sessionToken) => callFunction("list-blocked-users", { session_token: sessionToken }),
+  unblockUser: (sessionToken, targetVid) => callFunction("unblock-user", { session_token: sessionToken, target_vid: targetVid }),
+
+  updateProfilePhoto: (sessionToken, base64Data) => callFunction("update-profile-photo", { session_token: sessionToken, photo_base64: base64Data }),
+};

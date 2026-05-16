@@ -7,7 +7,7 @@ Screen.landing = function() {
         <div class="reach-subtitle">Don't share your number.<br>Share your REACH ID.</div>
         <div class="auth-actions">
           <button class="reach-primary pill" onclick="go('create')">Create Account</button>
-          <button class="google-btn" onclick="startGoogleSignup()"><span class="google-mark">G</span><span>Continue with Google</span></button>
+          <button class="google-btn" onclick="startGoogleSignup()">${GoogleMark()}<span>Continue with Google</span></button>
           <button class="reach-secondary pill" onclick="go('login')">Sign In</button>
         </div>
         <div class="auth-note">You can return with your REACH ID and password after reinstalling.</div>
@@ -23,7 +23,7 @@ Screen.createAccount = function() {
           ${authBrandRow("landing")}
           <h1 class="auth-heading">Create your <span>REACH ID</span></h1>
           <p class="auth-copy">Your ID is how people find you - no phone number needed.</p>
-          <button class="google-btn compact" onclick="startGoogleSignup()"><span class="google-mark">G</span><span>Continue with Google</span></button>
+          <button class="google-btn compact" onclick="startGoogleSignup()">${GoogleMark()}<span>Continue with Google</span></button>
           <div class="or-divider"><span></span><em>or fill manually</em><span></span></div>
 
           <label class="field-label">Full Name</label>
@@ -107,6 +107,15 @@ function authBrandRow(backRoute) {
       <button class="back-square" onclick="go('${backRoute}')">‹</button>
       <div class="brand-mini"><span>R</span><b>REACH</b></div>
     </div>`;
+}
+
+function GoogleMark() {
+  return `<svg class="google-mark" viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285F4" d="M22.6 12.23c0-.78-.07-1.53-.2-2.23H12v4.22h5.94a5.08 5.08 0 0 1-2.2 3.33v2.72h3.56c2.08-1.92 3.3-4.75 3.3-8.04Z"/>
+    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.56-2.72c-.98.66-2.23 1.05-3.72 1.05-2.86 0-5.29-1.93-6.16-4.53H2.18v2.8A11 11 0 0 0 12 23Z"/>
+    <path fill="#FBBC05" d="M5.84 14.14A6.61 6.61 0 0 1 5.49 12c0-.74.13-1.46.35-2.14v-2.8H2.18A11 11 0 0 0 1 12c0 1.77.42 3.45 1.18 4.94l3.66-2.8Z"/>
+    <path fill="#EA4335" d="M12 5.33c1.62 0 3.07.56 4.21 1.65l3.15-3.15C17.45 2.05 14.97 1 12 1A11 11 0 0 0 2.18 7.06l3.66 2.8C6.71 7.26 9.14 5.33 12 5.33Z"/>
+  </svg>`;
 }
 
 function monthOptions() {

@@ -13,12 +13,15 @@ const Auth = {
   isLoggedIn: () => window.PREVIEW_MODE || !!Auth.getToken(),
 
   saveAccount(account) {
-    localStorage.setItem(Auth.TOKEN_KEY, account.session_token || account.sessionToken || "");
-    localStorage.setItem(Auth.VID_KEY, account.vid || "");
-    localStorage.setItem(Auth.NAME_KEY, account.display_name || account.displayName || "REACH User");
-    localStorage.setItem(Auth.AVATAR_KEY, String(account.avatar_id ?? account.avatarId ?? 1));
-    if (account.profile_photo || account.profilePhoto) {
-      localStorage.setItem(Auth.PHOTO_KEY, account.profile_photo || account.profilePhoto);
+    const user = account.user || account.account || account;
+    const token = account.session_token || account.sessionToken || user.session_token || user.sessionToken || "";
+    const vid = String(user.vid || account.vid || "").replace(/[^0-9]/g, "").slice(0, 8);
+    localStorage.setItem(Auth.TOKEN_KEY, token);
+    localStorage.setItem(Auth.VID_KEY, vid);
+    localStorage.setItem(Auth.NAME_KEY, user.display_name || user.displayName || account.display_name || account.displayName || "REACH User");
+    localStorage.setItem(Auth.AVATAR_KEY, String(user.avatar_id ?? user.avatarId ?? account.avatar_id ?? account.avatarId ?? 1));
+    if (user.profile_photo || user.profilePhoto || account.profile_photo || account.profilePhoto) {
+      localStorage.setItem(Auth.PHOTO_KEY, user.profile_photo || user.profilePhoto || account.profile_photo || account.profilePhoto);
     }
   },
 

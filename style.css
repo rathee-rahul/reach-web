@@ -345,6 +345,7 @@ button, a, [onclick] { touch-action: manipulation; }
 .auth-screen {
   background: var(--surface);
   color: var(--ink);
+  padding: 24px;
 }
 
 .auth-landing {
@@ -352,7 +353,7 @@ button, a, [onclick] { touch-action: manipulation; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 108px 24px 22px;
+  padding: 108px 0 22px;
 }
 
 .reach-logo {
@@ -362,6 +363,7 @@ button, a, [onclick] { touch-action: manipulation; }
   background: linear-gradient(135deg, #248755, #15593A);
   color: #fff;
   font-weight: 800;
+  box-shadow: none;
 }
 
 .reach-logo-large {
@@ -376,7 +378,8 @@ button, a, [onclick] { touch-action: manipulation; }
   font-size: 34px;
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.36px;
+  color: var(--ink);
 }
 
 .reach-subtitle {
@@ -385,7 +388,7 @@ button, a, [onclick] { touch-action: manipulation; }
   text-align: center;
   color: var(--muted);
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .auth-actions {
@@ -402,18 +405,19 @@ button, a, [onclick] { touch-action: manipulation; }
   text-align: center;
   color: var(--muted);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .reach-primary,
 .reach-secondary,
 .google-btn {
-  min-height: 50px;
+  min-height: 54px;
   border-radius: 12px;
   border: 1px solid transparent;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .reach-primary {
@@ -444,6 +448,39 @@ button, a, [onclick] { touch-action: manipulation; }
   align-items: center;
   justify-content: center;
   gap: 10px;
+  min-height: 54px;
+  border-radius: 12px;
+}
+
+@media (max-height: 720px) {
+  .auth-landing {
+    padding-top: 84px;
+  }
+
+  .auth-actions {
+    margin-top: 52px;
+  }
+}
+
+@media (max-height: 640px) {
+  .auth-landing {
+    padding-top: 54px;
+  }
+
+  .reach-logo-large {
+    width: 70px;
+    height: 70px;
+    border-radius: 16px;
+    font-size: 31px;
+  }
+
+  .reach-title {
+    margin-top: 18px;
+  }
+
+  .auth-actions {
+    margin-top: 36px;
+  }
 }
 
 .google-btn.compact {

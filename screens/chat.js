@@ -25,7 +25,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       </div>
     </div>`;
 
-  await loadMessages(chatId);
+  await loadMessages(chatId, { showCacheFirst: true });
   Api.markSeen(Auth.getToken(), chatId).catch(() => {});
   startPresencePolling(contactVid);
   subscribeToChat(chatId, async () => {
@@ -34,14 +34,38 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   });
 };
 
-async function loadMessages(chatId) {
+async function loadMessages(chatId, options = {}) {
+  const ownerVid = Auth.getVid();
+  let renderedCache = false;
+  if (options.showCacheFirst) {
+    const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
+    if (cachedMessages.length) {
+      currentChatMessages = cachedMessages;
+      renderMessages(currentChatMessages, ownerVid);
+      scrollToBottom();
+      renderedCache = true;
+    }
+  }
   try {
     const data = await Api.listMessages(Auth.getToken(), chatId);
     currentChatMessages = (data.messages || data || []).map(Utils.normalizeMessage);
-    renderMessages(currentChatMessages, Auth.getVid());
+    await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
+    renderMessages(currentChatMessages, ownerVid);
     scrollToBottom();
   } catch (error) {
-    showToast(error.message || "Failed to load messages");
+    if (renderedCache) {
+      showToast("Showing saved messages");
+    } else {
+      const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
+      if (cachedMessages.length) {
+        currentChatMessages = cachedMessages;
+        renderMessages(currentChatMessages, ownerVid);
+        scrollToBottom();
+        showToast("Showing saved messages");
+      } else {
+        showToast(error.message || "Failed to load messages");
+      }
+    }
   }
 }
 

@@ -1,3 +1,5 @@
+const ANDROID_ONLY_MESSAGE = "This can be changed using REACH Android app. Not available for iOS at present.";
+
 Screen.profile = function() {
   const vid = Auth.getVid();
   const name = Auth.getName();
@@ -10,18 +12,25 @@ Screen.profile = function() {
       <div class="header"><span class="header-title">Profile</span></div>
       <div class="scroll">
         <div class="profile-hero">
-          ${Avatar(name, avatar, 72, photo)}
-          <div class="profile-name">${Utils.escape(name)}</div>
+          <button class="profile-avatar-button" onclick="chooseProfilePhoto()" title="Change profile photo">
+            ${Avatar(name, avatar, 76, photo)}
+            <span class="profile-avatar-edit">${Icon("camera", 15)}</span>
+          </button>
+          <div class="profile-name-row">
+            <div class="profile-name">${Utils.escape(name)}</div>
+            <button class="mini-icon-btn" onclick="editProfileName()" title="Edit name">${Icon("edit", 16)}</button>
+          </div>
           <div class="profile-id">
             <span>ID ${Utils.escape(vid)}</span>
             <button class="mini-icon-btn" onclick="copyVid()" title="Copy REACH ID">${Icon("copy", 17)}</button>
           </div>
+          <input id="profile-photo-input" type="file" accept="image/*" onchange="uploadProfilePhoto(this)" hidden>
         </div>
         <div class="profile-section">
           ${profileRow("mail", "Add Recovery Mail", recoveryText, "showAddRecoveryMailDialog()")}
-          ${profileRow("shield", "Privacy & Security", "", "go('settings')")}
-          ${profileRow("block", "Blocked Users", "", "go('blocked')")}
-          ${profileRow("lock", "App Lock", "Android app only", "showDownloadModal('App Lock','Lock')", "App only")}
+          ${profileRow("shield", "Privacy & Security", "Read receipts, last seen and direct messages are on", "go('settings')")}
+          ${profileRow("block", "Blocked Users", "Visible here. Changes are Android app only.", "go('blocked')", "Locked")}
+          ${profileRow("lock", "App Lock", "On", "showAndroidOnlySettingsToast()", "Locked")}
           <div class="row" onclick="doLogout()"><div class="row-info"><div class="row-name" style="color:var(--red);">Sign Out</div></div></div>
         </div>
       </div>
@@ -33,7 +42,7 @@ function profileRow(icon, title, sub, action, badge = "") {
   return `<div class="row" onclick="${action}">
     <span class="profile-row-icon">${Icon(icon, 19)}</span>
     <div class="row-info"><div class="row-name">${title}</div>${sub ? `<div class="row-sub">${Utils.escape(sub)}</div>` : ""}</div>
-    ${badge ? `<span style="font-size:11px;background:var(--warn-soft);color:var(--warn);padding:3px 8px;border-radius:6px;">${badge}</span>` : `<span style="color:var(--muted);">›</span>`}
+    ${badge ? `<span class="locked-badge">${Utils.escape(badge)}</span>` : `<span class="row-chevron">&rsaquo;</span>`}
   </div>`;
 }
 
@@ -45,6 +54,69 @@ function doLogout() {
   if (!confirm("Sign out of REACH?")) return;
   Auth.logout();
   go("landing");
+}
+
+function showAndroidOnlySettingsToast() {
+  showToast(ANDROID_ONLY_MESSAGE);
+}
+
+function chooseProfilePhoto() {
+  document.getElementById("profile-photo-input")?.click();
+}
+
+function uploadProfilePhoto(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    showToast("Choose an image file");
+    return;
+  }
+  if (file.size > 140000) {
+    showToast("Choose a smaller photo");
+    input.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const photo = String(reader.result || "");
+    try {
+      const data = await Api.updateProfilePhoto(Auth.getToken(), photo);
+      const savedPhoto = data.profile_photo || photo;
+      localStorage.setItem(Auth.PHOTO_KEY, savedPhoto);
+      showToast("Profile photo updated");
+      Screen.profile();
+    } catch (error) {
+      showToast(error.message || "Photo update failed");
+    } finally {
+      input.value = "";
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function editProfileName() {
+  const current = Auth.getName();
+  const name = window.prompt("Edit name", current);
+  if (name == null) return;
+  const cleanName = name.trim().replace(/\s+/g, " ");
+  if (!cleanName) {
+    showToast("Name cannot be empty");
+    return;
+  }
+  if (cleanName.length > 40) {
+    showToast("Name is too long");
+    return;
+  }
+  if (cleanName === current) return;
+  try {
+    const data = await Api.updateProfileName(Auth.getToken(), cleanName);
+    const savedName = data.user?.display_name || data.display_name || cleanName;
+    localStorage.setItem(Auth.NAME_KEY, savedName);
+    showToast("Name updated");
+    Screen.profile();
+  } catch (error) {
+    showToast(error.message || "Name update failed");
+  }
 }
 
 function showAddRecoveryMailDialog() {
@@ -63,40 +135,27 @@ function showAddRecoveryMailDialog() {
     .catch((error) => showToast(error.message));
 }
 
-Screen.settings = async function() {
+Screen.settings = function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header"><button class="plain-icon-btn" onclick="go('profile')" title="Back">${Icon("back")}</button><span class="header-title">Privacy & Security</span></div>
-      <div class="scroll" id="settings-body"><div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div></div>
+      <div class="scroll">
+        <div class="profile-section">
+          ${lockedSettingRow("Read Receipts", "Show when you have read messages", "On")}
+          ${lockedSettingRow("Last Seen", "Show your last active time", "On")}
+          ${lockedSettingRow("Direct Messages", "Allow direct messages and alerts", "On")}
+          ${lockedSettingRow("App Lock", "Protect REACH on this device", "On")}
+        </div>
+      </div>
     </div>`;
-  try {
-    const data = await Api.getPrivacySettings(Auth.getToken());
-    const settings = data.settings || data;
-    document.getElementById("settings-body").innerHTML = `
-      <div style="background:var(--surface);margin-top:12px;">
-        ${settingRow("Read Receipts", "Show when you have read messages", settings.read_receipts_enabled ?? settings.readReceiptsEnabled ?? true, "read_receipts_enabled")}
-        ${settingRow("Last Seen", "Show your last active time", settings.last_seen_enabled ?? settings.lastSeenEnabled ?? true, "last_seen_enabled")}
-        ${settingRow("Direct Notifications", "Allow direct message notifications", settings.notify_direct_messages ?? settings.notifyDirectMessages ?? true, "notify_direct_messages")}
-      </div>`;
-  } catch (error) {
-    showToast(error.message || "Failed to load settings");
-  }
 };
 
-function settingRow(label, sub, checked, key) {
-  return `<div class="row">
-    <div class="row-info"><div class="row-name">${label}</div><div class="row-sub">${sub}</div></div>
-    <input type="checkbox" ${checked ? "checked" : ""} onchange="saveSetting('${key}', this.checked)" style="width:22px;">
+function lockedSettingRow(label, sub, value) {
+  return `<div class="row" onclick="showAndroidOnlySettingsToast()">
+    <div class="row-info"><div class="row-name">${Utils.escape(label)}</div><div class="row-sub">${Utils.escape(sub)}</div></div>
+    <span class="setting-value">${Utils.escape(value)}</span>
+    <span class="locked-badge">Locked</span>
   </div>`;
-}
-
-async function saveSetting(key, value) {
-  try {
-    await Api.updatePrivacySettings(Auth.getToken(), { [key]: value });
-    showToast("Saved");
-  } catch (error) {
-    showToast(error.message || "Failed to save");
-  }
 }
 
 Screen.blocked = async function() {
@@ -110,29 +169,23 @@ Screen.blocked = async function() {
     const users = data.blocked || data.users || data || [];
     const el = document.getElementById("blocked-list");
     if (!users.length) {
-      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No blocked users</div>';
+      el.innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>No blocked users</b><span>Blocking and unblocking can be changed using REACH Android app.</span></div>';
       return;
     }
-    el.innerHTML = users.map((user) => {
-      const name = user.display_name || user.displayName || "REACH User";
-      const vid = user.vid || user.target_vid || user.targetVid || "";
-      return `<div class="row">
-        ${Avatar(name, user.avatar_id || user.avatarId || 1, 44, user.profile_photo || user.profilePhoto || "")}
-        <div class="row-info"><div class="row-name">${Utils.escape(name)}</div><div class="row-sub">ID ${Utils.escape(vid)}</div></div>
-        <button onclick="doUnblock('${vid}')" style="background:var(--warn-soft);color:var(--warn);border:none;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;">Unblock</button>
+    el.innerHTML = `
+      <div class="profile-section">
+        ${users.map((user) => {
+          const name = user.display_name || user.displayName || "REACH User";
+          const vid = user.vid || user.target_vid || user.targetVid || "";
+          return `<div class="row">
+            ${Avatar(name, user.avatar_id || user.avatarId || 1, 44, user.profile_photo || user.profilePhoto || "")}
+            <div class="row-info"><div class="row-name">${Utils.escape(name)}</div><div class="row-sub">ID ${Utils.escape(vid)}</div></div>
+            <button class="locked-action" onclick="showAndroidOnlySettingsToast()">Locked</button>
+          </div>`;
+        }).join("")}
       </div>`;
-    }).join("");
   } catch (error) {
+    document.getElementById("blocked-list").innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>Blocked Users</b><span>This section is available in REACH Android app.</span></div>';
     showToast(error.message || "Failed to load blocked users");
   }
 };
-
-async function doUnblock(vid) {
-  try {
-    await Api.unblockUser(Auth.getToken(), vid);
-    showToast("Unblocked");
-    Screen.blocked();
-  } catch (error) {
-    showToast(error.message);
-  }
-}

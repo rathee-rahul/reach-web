@@ -20,7 +20,6 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       </div>
       <div id="typing-label" style="display:none;background:var(--chat-bg);padding:0 14px 6px;color:var(--muted);font-size:12px;">typing...</div>
       <div class="chat-input-bar">
-        <button class="icon-btn" onclick="showDownloadModal('Voice Notes','Voice')" title="Voice note">${Icon("mic")}</button>
         <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping('${chatId}')" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${chatId}');}">
         <button class="send-btn" onclick="sendMsg('${chatId}')" title="Send">${Icon("send", 18)}</button>
       </div>

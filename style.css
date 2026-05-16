@@ -931,9 +931,42 @@ button, a, [onclick] { touch-action: manipulation; }
   border-bottom: 1px solid var(--line);
 }
 
+.profile-avatar-button {
+  position: relative;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.profile-avatar-edit {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  border: 2px solid var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
 .profile-name {
   font-size: 20px;
   font-weight: 800;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .profile-id {
@@ -966,6 +999,41 @@ button, a, [onclick] { touch-action: manipulation; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.row-chevron {
+  color: var(--muted);
+  font-size: 20px;
+}
+
+.locked-badge {
+  font-size: 11px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  padding: 3px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.setting-value {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green);
+  background: var(--green-soft);
+  border-radius: 999px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.locked-action {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: none;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .action-sheet {

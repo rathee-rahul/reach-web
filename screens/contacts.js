@@ -5,34 +5,58 @@ Screen.contacts = async function() {
         <span class="header-title">Contacts</span>
         <button class="header-icon-btn primary" onclick="Screen.addContact()" title="Add contact">${Icon("plus")}</button>
       </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search contacts..." oninput="filterContacts(this.value)">
+      </div>
       <div class="scroll" id="contacts-list"><div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div></div>
       ${BottomNav("contacts")}
     </div>`;
   try {
     const data = await Api.listContacts(Auth.getToken());
     const contacts = data.contacts || data || [];
-    const el = document.getElementById("contacts-list");
-    if (!contacts.length) {
-      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No contacts yet</div>';
-      return;
-    }
-    el.innerHTML = contacts.map((contact) => {
-      const name = contact.display_name || contact.displayName || "REACH User";
-      const vid = contact.vid || contact.contact_vid || contact.contactVid || "";
-      const chatId = contact.chat_id || contact.chatId || "";
-      return `
-        <div class="row" onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')">
-          ${Avatar(name, contact.avatar_id || contact.avatarId || 1, 44, contact.profile_photo || contact.profilePhoto || "")}
-          <div class="row-info">
-            <div class="row-name">${Utils.escape(name)}</div>
-            <div class="row-sub">ID ${Utils.escape(vid)}</div>
-          </div>
-        </div>`;
-    }).join("");
+    window._allContacts = contacts;
+    renderContactList(contacts);
   } catch (error) {
     showToast(error.message || "Failed to load contacts");
   }
 };
+
+function renderContactList(contacts) {
+  const el = document.getElementById("contacts-list");
+  if (!el) return;
+  if (!contacts.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No contacts yet</div>';
+    return;
+  }
+  el.innerHTML = contacts.map((contact) => {
+    const name = contact.display_name || contact.displayName || "REACH User";
+    const vid = contact.vid || contact.contact_vid || contact.contactVid || "";
+    const chatId = contact.chat_id || contact.chatId || "";
+    const avatar = contact.avatar_id || contact.avatarId || 1;
+    const photo = contact.profile_photo || contact.profilePhoto || "";
+    return `
+      <div class="row" onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')">
+        ${Avatar(name, avatar, 44, photo)}
+        <div class="row-info">
+          <div class="row-name">${Utils.escape(name)}</div>
+          <div class="row-sub">ID ${Utils.escape(vid)}</div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function filterContacts(query) {
+  if (!window._allContacts) return;
+  const q = query.toLowerCase().trim();
+  const filtered = q
+    ? window._allContacts.filter((contact) => {
+        const name = (contact.display_name || contact.displayName || "").toLowerCase();
+        const vid = String(contact.vid || contact.contact_vid || contact.contactVid || "");
+        return name.includes(q) || vid.includes(q);
+      })
+    : window._allContacts;
+  renderContactList(filtered);
+}
 
 Screen.addContact = function() {
   document.getElementById("app").innerHTML = `

@@ -44,7 +44,7 @@ Screen.createAccount = function() {
           </div>
           <input id="create-gender" type="hidden">
 
-          <label class="field-label">Password (8 character)</label>
+          <label class="field-label">Password (minimum 8 characters)</label>
           <div class="icon-field"><span>Lock</span><input id="create-password" type="password" placeholder="Choose a password" oninput="updateWebPasswordStrength()"></div>
           <div class="password-bar"><i id="password-fill"></i></div>
           <p class="small-muted">Do not use your REACH ID as your password.</p>
@@ -163,7 +163,7 @@ function updateWebPasswordStrength() {
 }
 
 function startGoogleSignup() {
-  showDownloadModal("Continue with Google", "G");
+  showToast("Google sign-in is coming soon to REACH Web.");
 }
 
 async function doLogin() {

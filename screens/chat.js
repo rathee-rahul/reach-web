@@ -1,17 +1,27 @@
 let chatPresenceTimer = null;
 let chatTypingTimer = null;
 let currentChatMessages = [];
+let currentChatId = "";
+
+window.addEventListener("hashchange", () => {
+  clearInterval(chatPresenceTimer);
+  clearTimeout(chatTypingTimer);
+  chatPresenceTimer = null;
+  chatTypingTimer = null;
+});
 
 Screen.chat = async function(chatId, contactName, contactVid) {
+  currentChatId = chatId;
   stopRealtime();
   clearInterval(chatPresenceTimer);
+  clearTimeout(chatTypingTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
         <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
         <div style="flex:1;min-width:0;">
           <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escape(contactName || "Chat")}</div>
-          <div id="presence-label" style="font-size:12px;color:var(--muted);">ID ${Utils.escape(contactVid || "")}</div>
+          <div id="presence-label" style="font-size:12px;color:var(--muted);"></div>
         </div>
         <button class="plain-icon-btn" onclick="showChatMenu('${chatId}', '${contactVid || ""}')" title="Chat options">${Icon("more")}</button>
       </div>
@@ -115,12 +125,26 @@ async function sendMsg(chatId) {
   if (!text) return;
   input.value = "";
   Api.setTyping(Auth.getToken(), chatId, false).catch(() => {});
+  const tempId = `temp-${Date.now()}`;
+  const tempMessage = Utils.normalizeMessage({
+    id: tempId,
+    chatId,
+    senderVid: Auth.getVid(),
+    contentType: "text",
+    content: text,
+    sentAt: new Date().toISOString(),
+  });
+  currentChatMessages = [...currentChatMessages, tempMessage];
+  renderMessages(currentChatMessages, Auth.getVid());
+  scrollToBottom();
   try {
     await Api.sendMessage(Auth.getToken(), chatId, text);
     await loadMessages(chatId);
   } catch (error) {
     showToast(error.message || "Send failed");
     input.value = text;
+    currentChatMessages = currentChatMessages.filter((message) => message.id !== tempId);
+    renderMessages(currentChatMessages, Auth.getVid());
   }
 }
 
@@ -153,13 +177,13 @@ function showMsgMenu(messageId) {
     ? [
         ["Copy", () => copyMessage(message.content)],
         ["Info", () => showMessageInfo(message)],
-        ["Edit", () => editMsg(message.id, message.content)],
-        ["Delete for Everyone", () => deleteMsg(message.id, "everyone")],
-        ["Delete for Me", () => deleteMsg(message.id, "me")],
+        ["Edit", () => editMsg(message.id, message.content, currentChatId)],
+        ["Delete for Everyone", () => deleteMsg(message.id, "everyone", currentChatId)],
+        ["Delete for Me", () => deleteMsg(message.id, "me", currentChatId)],
       ]
     : [
         ["Copy", () => copyMessage(message.content)],
-        ["Delete for Me", () => deleteMsg(message.id, "me")],
+        ["Delete for Me", () => deleteMsg(message.id, "me", currentChatId)],
       ];
   showActionSheet("Message options", options);
 }
@@ -199,21 +223,21 @@ function showMessageInfo(message) {
   showActionSheet("Message info", rows.map(([label, value]) => [`${label}: ${value}`, () => {}]));
 }
 
-async function editMsg(messageId, oldContent) {
+async function editMsg(messageId, oldContent, chatId) {
   const content = window.prompt("Edit message", oldContent);
   if (!content || content.trim() === oldContent) return;
   try {
     await Api.editMessage(Auth.getToken(), messageId, content.trim());
-    await loadMessages(Router.parse().params.id);
+    await loadMessages(chatId);
   } catch (error) {
     showToast(error.message);
   }
 }
 
-async function deleteMsg(messageId, scope) {
+async function deleteMsg(messageId, scope, chatId) {
   try {
     await Api.deleteMessage(Auth.getToken(), messageId, scope);
-    await loadMessages(Router.parse().params.id);
+    await loadMessages(chatId);
   } catch (error) {
     showToast(error.message);
   }

@@ -1,25 +1,40 @@
 Screen.chats = async function() {
+  const vid = Auth.getVid();
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
         <span class="header-title">Chats</span>
+        <button class="vid-chip" onclick="copyVid()" title="Copy REACH ID">#${Utils.escape(vid)}</button>
         <button class="header-icon-btn" onclick="go('contacts')" title="New chat">${Icon("plus")}</button>
       </div>
       <div class="dl-banner">
         <div class="dl-banner-text">Use the Android app for app lock, notification badges, voice notes and full device features.</div>
         <button class="dl-banner-btn" onclick="openApkLink()">Download</button>
       </div>
+      <div class="search-bar">
+        <input type="text" placeholder="Search chats..." id="chat-search" oninput="filterChats(this.value)">
+      </div>
       <div class="scroll" id="chat-list"><div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div></div>
       ${BottomNav("chats")}
     </div>`;
 
   const ownerVid = Auth.getVid();
+  LocalCache.cleanOldChats().catch(() => {});
+  Api.touchLastSeen(Auth.getToken()).catch(() => {});
+  if (!window._offlineListenerAdded) {
+    window._offlineListenerAdded = true;
+    window.addEventListener("beforeunload", () => Api.setOffline(Auth.getToken()).catch(() => {}));
+  }
   const cachedContacts = await LocalCache.getChatList(ownerVid);
-  if (cachedContacts.length) renderChatList(cachedContacts);
+  if (cachedContacts.length) {
+    window._allChatContacts = cachedContacts;
+    renderChatList(cachedContacts);
+  }
 
   try {
     const data = await Api.listContacts(Auth.getToken());
     const contacts = data.contacts || data || [];
+    window._allChatContacts = contacts;
     await LocalCache.saveChatList(ownerVid, contacts);
     renderChatList(contacts);
   } catch (error) {
@@ -60,4 +75,17 @@ function renderChatList(contacts) {
         </div>
       </div>`;
   }).join("");
+}
+
+function filterChats(query) {
+  if (!window._allChatContacts) return;
+  const q = query.toLowerCase().trim();
+  const filtered = q
+    ? window._allChatContacts.filter((contact) => {
+        const name = (contact.display_name || contact.displayName || "").toLowerCase();
+        const vid = String(contact.vid || contact.contact_vid || contact.contactVid || "");
+        return name.includes(q) || vid.includes(q);
+      })
+    : window._allChatContacts;
+  renderChatList(filtered);
 }

@@ -46,12 +46,9 @@ function profileRow(icon, title, sub, action, badge = "") {
   </div>`;
 }
 
-function copyVid() {
-  navigator.clipboard?.writeText(Auth.getVid()).then(() => showToast("REACH ID copied")).catch(() => showToast(Auth.getVid()));
-}
-
 function doLogout() {
   if (!confirm("Sign out of REACH?")) return;
+  resetRealtime();
   Auth.logout();
   go("landing");
 }

@@ -45,7 +45,25 @@ async function previewFunction(name, body) {
   if (name === "list-contacts") return { contacts: PreviewData.contacts };
   if (name === "list-requests") return { requests: PreviewData.requests };
   if (name === "list-messages") return { messages: PreviewData.messages };
+  if (name === "send-message") {
+    PreviewData.messages.push({
+      id: `preview-${Date.now()}`,
+      chatId: body.chat_id,
+      senderVid: "12345678",
+      contentType: "text",
+      content: body.content,
+      sentAt: new Date().toISOString(),
+      deliveredAt: new Date().toISOString(),
+    });
+    return { ok: true };
+  }
   if (name === "get-contact-presence") return { online: true, visible: true, lastSeenAt: new Date().toISOString() };
+  if (name === "touch-last-seen" || name === "set-offline" || name === "set-chat-typing" || name === "mark-seen") return { ok: true };
+  if (name === "list-groups") return { groups: [{ id: "preview-group-1", name: "REACH Team", memberCount: 3 }] };
+  if (name === "list-group-messages") return { messages: [
+    { id: "gm1", groupId: body.group_id, senderVid: "87654321", content: "Group messages are visible here.", sentAt: new Date(Date.now() - 600000).toISOString() },
+    { id: "gm2", groupId: body.group_id, senderVid: "12345678", content: "Management stays in the Android app.", sentAt: new Date(Date.now() - 300000).toISOString() },
+  ] };
   if (name === "get-privacy-settings") return { settings: { read_receipts_enabled: true, last_seen_enabled: true, notify_direct_messages: true } };
   if (name === "list-blocked-users") return { blocked: [{ vid: "99887766", displayName: "Blocked User", avatarId: 5 }] };
   if (name === "update-profile") return { user: { display_name: body.display_name } };

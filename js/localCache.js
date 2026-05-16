@@ -102,5 +102,26 @@ const LocalCache = (() => {
         });
       } catch {}
     },
+
+    async cleanOldChats(maxAgeDays = 30) {
+      try {
+        const db = await openDb();
+        const cutoff = new Date(Date.now() - maxAgeDays * 86400000).toISOString();
+        await new Promise((resolve) => {
+          const tx = db.transaction(CHAT_STORE, "readwrite");
+          const store = tx.objectStore(CHAT_STORE);
+          const request = store.openCursor();
+          request.onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (!cursor) return;
+            if (cursor.value.updatedAt < cutoff) cursor.delete();
+            cursor.continue();
+          };
+          tx.oncomplete = resolve;
+          tx.onerror = resolve;
+        });
+        db.close();
+      } catch {}
+    },
   };
 })();

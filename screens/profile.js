@@ -71,15 +71,10 @@ function uploadProfilePhoto(input) {
     showToast("Choose an image file");
     return;
   }
-  if (file.size > 140000) {
-    showToast("Choose a smaller photo");
-    input.value = "";
-    return;
-  }
   const reader = new FileReader();
   reader.onload = async () => {
-    const photo = String(reader.result || "");
     try {
+      const photo = await prepareProfilePhoto(String(reader.result || ""));
       const data = await Api.updateProfilePhoto(Auth.getToken(), photo);
       const savedPhoto = data.profile_photo || photo;
       localStorage.setItem(Auth.PHOTO_KEY, savedPhoto);
@@ -92,6 +87,42 @@ function uploadProfilePhoto(input) {
     }
   };
   reader.readAsDataURL(file);
+}
+
+function prepareProfilePhoto(dataUrl) {
+  return new Promise((resolve, reject) => {
+    if (dataUrl.length <= 170000) {
+      resolve(dataUrl);
+      return;
+    }
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      const size = 384;
+      const scale = Math.min(1, size / Math.max(image.width, image.height));
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Photo resize failed"));
+        return;
+      }
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let quality = 0.82;
+      let output = canvas.toDataURL("image/jpeg", quality);
+      while (output.length > 170000 && quality > 0.42) {
+        quality -= 0.1;
+        output = canvas.toDataURL("image/jpeg", quality);
+      }
+      if (output.length > 170000) {
+        reject(new Error("Choose a smaller photo"));
+        return;
+      }
+      resolve(output);
+    };
+    image.onerror = () => reject(new Error("Could not read photo"));
+    image.src = dataUrl;
+  });
 }
 
 async function editProfileName() {

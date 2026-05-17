@@ -335,22 +335,8 @@ async function deleteMsg(messageId, scope, chatId) {
 
 function showChatMenu(chatId, contactVid) {
   showActionSheet("Chat options", [
-    ["Block user", () => showBlockOptions(contactVid)],
     ["Report user", () => Api.reportUser(Auth.getToken(), contactVid, "reported via web").then(() => showToast("Reported")).catch((error) => showToast(error.message))],
-    ["Android-only features", () => showDownloadModal("Full Chat Tools", "App")],
+    ["Block user", () => showDownloadModal("Block User", "Block")],
+    ["Full chat tools", () => showDownloadModal("Full Chat Tools", "App")],
   ]);
-}
-
-function showBlockOptions(contactVid) {
-  showActionSheet("Block user", [
-    ["Silent block", () => blockContact(contactVid, "silent")],
-    ["Delete chat and block", () => blockContact(contactVid, "delete")],
-    ["Delete, report and block", () => blockContact(contactVid, "report")],
-  ]);
-}
-
-function blockContact(contactVid, type) {
-  Api.blockUser(Auth.getToken(), contactVid, type)
-    .then(() => { showToast("User blocked"); go("chats"); })
-    .catch((error) => showToast(error.message));
 }

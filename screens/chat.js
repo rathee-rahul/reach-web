@@ -2,6 +2,7 @@ let chatPresenceTimer = null;
 let chatTypingTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
+const recentSentMessages = [];
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatPresenceTimer);
@@ -144,10 +145,13 @@ async function sendMsg(chatId) {
     sentAt: new Date().toISOString(),
   });
   currentChatMessages = [...currentChatMessages, tempMessage];
+  rememberSentMessage(tempMessage);
   renderMessages(currentChatMessages, Auth.getVid());
   scrollToBottom();
   try {
-    await Api.sendMessage(Auth.getToken(), chatId, text);
+    const data = await Api.sendMessage(Auth.getToken(), chatId, text);
+    const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
+    rememberSentMessage({ ...savedMessage, content: savedMessage.content || text, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true });
     await loadMessages(chatId);
   } catch (error) {
     showToast(error.message || "Send failed");
@@ -157,20 +161,36 @@ async function sendMsg(chatId) {
   }
 }
 
+function rememberSentMessage(message) {
+  if (!message.content) return;
+  recentSentMessages.push({
+    id: message.id || "",
+    content: message.content,
+    sentAt: message.sentAt || new Date().toISOString(),
+  });
+  while (recentSentMessages.length > 30) recentSentMessages.shift();
+}
+
 function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
   const recentOutgoing = previousMessages
     .filter((message) => Utils.isOwnMessage(message, myVid) && message.content)
     .slice(-20);
   return freshMessages.map((message) => {
-    if (message.senderVid || message.isMine) return message;
-    const match = recentOutgoing.find((oldMessage) => {
-      if (oldMessage.content !== message.content) return false;
-      const oldTime = new Date(oldMessage.sentAt || 0).getTime();
-      const newTime = new Date(message.sentAt || 0).getTime();
-      return !Number.isFinite(oldTime) || !Number.isFinite(newTime) || Math.abs(oldTime - newTime) < 30000;
-    });
+    if (message.isMine || Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid)) {
+      return { ...message, isMine: true };
+    }
+    const match = [...recentSentMessages, ...recentOutgoing].find((oldMessage) => isSameOutgoingMessage(oldMessage, message));
     return match ? { ...message, senderVid: Utils.normalizeVid(myVid), isMine: true } : message;
   });
+}
+
+function isSameOutgoingMessage(oldMessage, freshMessage) {
+  if (oldMessage.id && freshMessage.id && oldMessage.id === freshMessage.id) return true;
+  if (oldMessage.content !== freshMessage.content) return false;
+  const oldTime = new Date(oldMessage.sentAt || 0).getTime();
+  const freshTime = new Date(freshMessage.sentAt || 0).getTime();
+  if (!Number.isFinite(oldTime) || !Number.isFinite(freshTime)) return true;
+  return Math.abs(oldTime - freshTime) < 60000;
 }
 
 function startPresencePolling(contactVid) {

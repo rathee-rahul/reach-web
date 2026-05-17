@@ -93,7 +93,7 @@ function uploadProfilePhoto(input) {
     try {
       const photo = await prepareProfilePhoto(String(reader.result || ""));
       const data = await Api.updateProfilePhoto(Auth.getToken(), photo);
-      const savedPhoto = data.profile_photo || photo;
+      const savedPhoto = data.user?.profile_photo || data.profile_photo || photo;
       localStorage.setItem(Auth.PHOTO_KEY, savedPhoto);
       showToast("Profile photo updated");
       Screen.profile();

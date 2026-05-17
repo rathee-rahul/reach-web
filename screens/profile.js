@@ -109,7 +109,7 @@ function uploadProfilePhoto(input) {
 function prepareProfilePhoto(dataUrl) {
   return new Promise((resolve, reject) => {
     if (dataUrl.length <= 170000) {
-      resolve(dataUrl);
+      resolve(stripProfilePhotoDataUrl(dataUrl));
       return;
     }
     const image = new Image();
@@ -135,11 +135,15 @@ function prepareProfilePhoto(dataUrl) {
         reject(new Error("Choose a smaller photo"));
         return;
       }
-      resolve(output);
+      resolve(stripProfilePhotoDataUrl(output));
     };
     image.onerror = () => reject(new Error("Could not read photo"));
     image.src = dataUrl;
   });
+}
+
+function stripProfilePhotoDataUrl(value) {
+  return String(value || "").replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, "");
 }
 
 async function editProfileName() {

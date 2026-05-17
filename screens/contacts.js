@@ -90,7 +90,7 @@ async function searchVid() {
           <div style="font-size:16px;font-weight:700;">${Utils.escape(name)}</div>
           <div style="font-size:12px;color:var(--muted);">ID ${Utils.escape(contact.vid || vid)}</div>
         </div>
-        <button onclick="sendReq('${contact.vid || vid}')" class="header-icon-btn primary" title="Send request">${Icon("plus")}</button>
+        <button onclick="sendReq(${Utils.jsString(contact.vid || vid)})" class="header-icon-btn primary" title="Send request">${Icon("plus")}</button>
       </div>`;
   } catch (error) {
     result.innerHTML = `<div style="color:var(--red);font-size:13px;">${Utils.escape(error.message)}</div>`;

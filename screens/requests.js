@@ -33,8 +33,8 @@ Screen.requests = async function() {
               <span class="new-pill">NEW</span>
             </div>
             <div class="request-actions">
-              <button class="reach-primary" onclick="acceptReq('${request.id}')">Accept</button>
-              <button class="reach-secondary" onclick="rejectReq('${request.id}')">Decline</button>
+              <button class="reach-primary" onclick="acceptReq(${Utils.jsString(request.id)})">Accept</button>
+              <button class="reach-secondary" onclick="rejectReq(${Utils.jsString(request.id)})">Decline</button>
             </div>
           </div>`;
       }).join("")}`;

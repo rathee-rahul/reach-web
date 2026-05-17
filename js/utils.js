@@ -32,6 +32,10 @@ const Utils = {
       .replace(/'/g, "&#39;");
   },
 
+  jsString(value) {
+    return Utils.escape(JSON.stringify(String(value ?? "")));
+  },
+
   normalizeVid(value) {
     return String(value ?? "").replace(/[^0-9]/g, "").slice(0, 8);
   },
@@ -74,7 +78,9 @@ const Utils = {
   },
 
   isOwnMessage(message, myVid) {
-    return message.isMine === true || Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid);
+    const senderVid = Utils.normalizeVid(message.senderVid);
+    const ownVid = Utils.normalizeVid(myVid);
+    return message.isMine === true || (!!senderVid && !!ownVid && senderVid === ownVid);
   },
 };
 

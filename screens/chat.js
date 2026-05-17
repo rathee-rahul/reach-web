@@ -14,6 +14,8 @@ window.addEventListener("hashchange", () => {
 
 Screen.chat = async function(chatId, contactName, contactVid) {
   currentChatId = chatId;
+  const chatArg = Utils.jsString(chatId);
+  const contactVidArg = Utils.jsString(contactVid || "");
   stopRealtime();
   clearInterval(chatPresenceTimer);
   clearTimeout(chatTypingTimer);
@@ -25,7 +27,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
           <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escape(contactName || "Chat")}</div>
           <div id="presence-label" style="font-size:12px;color:var(--muted);"></div>
         </div>
-        <button class="plain-icon-btn" onclick="showChatMenu('${chatId}', '${contactVid || ""}')" title="Chat options">${Icon("more")}</button>
+        <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>
       </div>
       <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
@@ -36,8 +38,8 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       </div>
       <div id="typing-label" style="display:none;background:var(--chat-bg);padding:0 14px 6px;color:var(--muted);font-size:12px;">typing...</div>
       <div class="chat-input-bar">
-        <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping('${chatId}')" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${chatId}');}">
-        <button class="send-btn" onclick="sendMsg('${chatId}')" title="Send">${Icon("send", 18)}</button>
+        <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
+        <button class="send-btn" onclick="sendMsg(${chatArg})" title="Send">${Icon("send", 18)}</button>
       </div>
     </div>`;
 
@@ -107,7 +109,7 @@ function renderMessages(messages, myVid) {
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
-        <div class="bubble ${isOut ? "out" : "in"}" onclick="showMsgMenu('${Utils.escape(message.id)}')">
+        <div class="bubble ${isOut ? "out" : "in"}" onclick="showMsgMenu(${Utils.jsString(message.id)})">
           <div>${Utils.escape(message.content)}</div>
           <div class="bubble-meta">${meta}</div>
         </div>
@@ -181,7 +183,8 @@ function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
     .slice(-20);
   const sentMarkers = loadSentMarkers(currentChatId);
   return freshMessages.map((message) => {
-    if (message.isMine || Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid)) {
+    const ownVid = Utils.normalizeVid(myVid);
+    if (message.isMine || (ownVid && Utils.normalizeVid(message.senderVid) === ownVid)) {
       return { ...message, isMine: true };
     }
     const match = [...sentMarkers, ...recentSentMessages, ...recentOutgoing].find((oldMessage) => isSameOutgoingMessage(oldMessage, message));

@@ -77,7 +77,7 @@ Screen.group = async function(groupId, groupName) {
     let html = "";
     messages.forEach((message) => {
       if (message.deletedAt) return;
-      const isOut = Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid);
+      const isOut = Utils.isOwnMessage(message, myVid);
       html += `
         <div class="bubble-wrap ${isOut ? "out" : "in"}">
           <div class="bubble ${isOut ? "out" : "in"}">

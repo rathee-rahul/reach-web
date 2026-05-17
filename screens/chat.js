@@ -16,6 +16,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   currentChatId = chatId;
   const chatArg = Utils.jsString(chatId);
   const contactVidArg = Utils.jsString(contactVid || "");
+  const contactIdLabel = contactVid ? `ID ${Utils.escape(contactVid)}` : "ID unavailable";
   stopRealtime();
   clearInterval(chatPresenceTimer);
   clearTimeout(chatTypingTimer);
@@ -23,9 +24,12 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     <div class="screen">
       <div class="header">
         <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escape(contactName || "Chat")}</div>
-          <div id="presence-label" style="font-size:12px;color:var(--muted);"></div>
+        <div class="chat-title-area">
+          <div class="chat-title-name">${Utils.escape(contactName || "Chat")}</div>
+          <div class="chat-subline">
+            <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
+            <span id="presence-label"></span>
+          </div>
         </div>
         <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>
       </div>
@@ -240,23 +244,28 @@ function isSameOutgoingMessage(oldMessage, freshMessage) {
 
 function startPresencePolling(contactVid) {
   clearInterval(chatPresenceTimer);
+  setPresenceText(contactVid, "");
   const run = async () => {
     if (!contactVid) return;
     try {
       const data = await Api.getContactPresence(Auth.getToken(), contactVid);
       const presence = data.presence || data;
-      const label = document.getElementById("presence-label");
-      if (!label) return;
       if (presence.online) {
-        label.textContent = "Online";
+        setPresenceText(contactVid, "Online");
       } else if (presence.last_seen_at || presence.lastSeenAt) {
         const value = presence.last_seen_at || presence.lastSeenAt;
-        label.textContent = `Last seen ${Utils.dateLabel(value)} ${Utils.formatTime(value)}`;
+        setPresenceText(contactVid, `Last seen ${Utils.dateLabel(value)} ${Utils.formatTime(value)}`);
       }
     } catch {}
   };
   run();
   chatPresenceTimer = setInterval(run, 5000);
+}
+
+function setPresenceText(contactVid, text) {
+  const label = document.getElementById("presence-label");
+  if (!label) return;
+  label.textContent = contactVid && text ? `• ${text}` : "";
 }
 
 function showMsgMenu(messageId) {
@@ -304,6 +313,12 @@ function copyMessage(content) {
   navigator.clipboard?.writeText(content).then(() => showToast("Message copied")).catch(() => showToast("Copy failed"));
 }
 
+function copyContactVid(contactVid) {
+  const vid = Utils.normalizeVid(contactVid);
+  if (!vid) return showToast("REACH ID unavailable");
+  navigator.clipboard?.writeText(vid).then(() => showToast("REACH ID copied")).catch(() => showToast(vid));
+}
+
 function showMessageInfo(message) {
   const rows = [
     ["Sent", message.sentAt ? `${Utils.dateLabel(message.sentAt)} ${Utils.formatTime(message.sentAt)}` : "Not available"],
@@ -335,6 +350,7 @@ async function deleteMsg(messageId, scope, chatId) {
 
 function showChatMenu(chatId, contactVid) {
   showActionSheet("Chat options", [
+    ["Copy REACH ID", () => copyContactVid(contactVid)],
     ["Report user", () => Api.reportUser(Auth.getToken(), contactVid, "reported via web").then(() => showToast("Reported")).catch((error) => showToast(error.message))],
     ["Block user", () => showDownloadModal("Block User", "Block")],
     ["Full chat tools", () => showDownloadModal("Full Chat Tools", "App")],

@@ -136,6 +136,11 @@ body {
 }
 .header-title { font-size: 17px; font-weight: 700; color: var(--ink); flex: 1; }
 .back-btn { color: var(--green); font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 8px 2px 0; }
+.chat-title-area { flex: 1; min-width: 0; }
+.chat-title-name { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-subline { margin-top: 2px; min-height: 16px; display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.chat-contact-id { flex: 0 0 auto; width: auto; border: none; background: transparent; color: var(--green); padding: 0; font-size: 12px; font-weight: 700; cursor: pointer; }
+.chat-subline #presence-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
 input, textarea, button, select { font-family: var(--font); }
 input, textarea {

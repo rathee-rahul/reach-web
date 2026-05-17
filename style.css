@@ -26,7 +26,7 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --app-height: 100vh;
+  --app-height: 100svh;
 }
 
 html, body {
@@ -56,10 +56,11 @@ body {
   margin: 0 auto;
   min-height: 100vh;
   height: 100vh;
-  min-height: var(--app-height);
-  height: var(--app-height);
   min-height: 100svh;
   height: 100svh;
+  min-height: var(--app-height);
+  height: var(--app-height);
+  max-height: var(--app-height);
   position: relative;
   background: var(--bg);
   display: flex;
@@ -70,8 +71,8 @@ body {
 
 @supports (height: 100dvh) {
   #app {
-    min-height: 100dvh;
-    height: 100dvh;
+    min-height: var(--app-height);
+    height: var(--app-height);
   }
 }
 
@@ -89,6 +90,9 @@ body {
     height: calc(100vh - 48px);
     min-height: calc(100svh - 48px);
     height: calc(100svh - 48px);
+    min-height: calc(var(--app-height) - 48px);
+    height: calc(var(--app-height) - 48px);
+    max-height: calc(var(--app-height) - 48px);
     border-radius: var(--radius-lg);
     box-shadow: 0 4px 40px rgba(0,0,0,.15);
     overflow: hidden;
@@ -267,7 +271,7 @@ button, a, [onclick] { touch-action: manipulation; }
 .chat-input-bar {
   background: var(--surface);
   border-top: 0.5px solid var(--line);
-  padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
   display: flex;
   align-items: center;
   gap: 8px;

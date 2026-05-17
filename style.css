@@ -237,6 +237,33 @@ button, a, [onclick] { touch-action: manipulation; }
 .date-pill { text-align: center; padding: 4px 0 8px; font-size: 11px; color: var(--muted); }
 .date-pill span { background: rgba(255,255,255,.7); border-radius: 10px; padding: 2px 10px; }
 
+.chat-retention-note {
+  background: #FFF7DA;
+  border-top: 0.5px solid #ECD789;
+  border-bottom: 0.5px solid #ECD789;
+  color: #6E5600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.chat-retention-note span { flex: 1; min-width: 0; }
+
+.chat-retention-note button {
+  border: none;
+  background: var(--green);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .chat-input-bar {
   background: var(--surface);
   border-top: 0.5px solid var(--line);

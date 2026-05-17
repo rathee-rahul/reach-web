@@ -28,6 +28,10 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
       </div>
+      <div class="chat-retention-note">
+        <span>Messages are automatically deleted from web after about 12 hours.</span>
+        <button onclick="openApkLink()">Use app to keep chats</button>
+      </div>
       <div id="typing-label" style="display:none;background:var(--chat-bg);padding:0 14px 6px;color:var(--muted);font-size:12px;">typing...</div>
       <div class="chat-input-bar">
         <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping('${chatId}')" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg('${chatId}');}">
@@ -58,7 +62,11 @@ async function loadMessages(chatId, options = {}) {
   }
   try {
     const data = await Api.listMessages(Auth.getToken(), chatId);
-    currentChatMessages = (data.messages || data || []).map(Utils.normalizeMessage);
+    currentChatMessages = preserveOutgoingMessages(
+      (data.messages || data || []).map(Utils.normalizeMessage),
+      currentChatMessages,
+      ownerVid
+    );
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
     renderMessages(currentChatMessages, ownerVid);
     scrollToBottom();
@@ -95,7 +103,7 @@ function renderMessages(messages, myVid) {
       html += `<div class="date-pill"><span>${label}</span></div>`;
       lastDate = label;
     }
-    const isOut = Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid);
+    const isOut = Utils.isOwnMessage(message, myVid);
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
@@ -130,6 +138,7 @@ async function sendMsg(chatId) {
     id: tempId,
     chatId,
     senderVid: Auth.getVid(),
+    isMine: true,
     contentType: "text",
     content: text,
     sentAt: new Date().toISOString(),
@@ -146,6 +155,22 @@ async function sendMsg(chatId) {
     currentChatMessages = currentChatMessages.filter((message) => message.id !== tempId);
     renderMessages(currentChatMessages, Auth.getVid());
   }
+}
+
+function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
+  const recentOutgoing = previousMessages
+    .filter((message) => Utils.isOwnMessage(message, myVid) && message.content)
+    .slice(-20);
+  return freshMessages.map((message) => {
+    if (message.senderVid || message.isMine) return message;
+    const match = recentOutgoing.find((oldMessage) => {
+      if (oldMessage.content !== message.content) return false;
+      const oldTime = new Date(oldMessage.sentAt || 0).getTime();
+      const newTime = new Date(message.sentAt || 0).getTime();
+      return !Number.isFinite(oldTime) || !Number.isFinite(newTime) || Math.abs(oldTime - newTime) < 30000;
+    });
+    return match ? { ...message, senderVid: Utils.normalizeVid(myVid), isMine: true } : message;
+  });
 }
 
 function startPresencePolling(contactVid) {
@@ -172,7 +197,7 @@ function startPresencePolling(contactVid) {
 function showMsgMenu(messageId) {
   const message = currentChatMessages.find((item) => item.id === messageId);
   if (!message) return;
-  const mine = Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(Auth.getVid());
+  const mine = Utils.isOwnMessage(message, Auth.getVid());
   const options = mine
     ? [
         ["Copy", () => copyMessage(message.content)],

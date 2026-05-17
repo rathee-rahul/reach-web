@@ -37,10 +37,25 @@ const Utils = {
   },
 
   normalizeMessage(raw) {
+    const senderVid = Utils.normalizeVid(
+      raw.sender_vid
+      || raw.senderVid
+      || raw.sender
+      || raw.from_vid
+      || raw.fromVid
+      || raw.from
+      || raw.sender_id
+      || raw.senderId
+      || raw.sender_reach_id
+      || raw.senderReachId
+      || raw.vid
+      || ""
+    );
     return {
       id: raw.id || "",
       chatId: raw.chat_id || raw.chatId || "",
-      senderVid: Utils.normalizeVid(raw.sender_vid || raw.senderVid || raw.sender || raw.from_vid || raw.fromVid || ""),
+      senderVid,
+      isMine: raw.is_mine === true || raw.isMine === true || raw.is_outgoing === true || raw.isOutgoing === true || raw.sent_by_me === true || raw.sentByMe === true,
       contentType: raw.content_type || raw.contentType || "text",
       content: raw.content || "",
       sentAt: raw.sent_at || raw.sentAt || "",
@@ -52,10 +67,14 @@ const Utils = {
   },
 
   statusIcon(msg, myVid) {
-    if (Utils.normalizeVid(msg.senderVid) !== Utils.normalizeVid(myVid)) return "";
+    if (!Utils.isOwnMessage(msg, myVid)) return "";
     if (msg.seenAt) return '<span class="bubble-ticks seen">✓✓</span>';
     if (msg.deliveredAt) return '<span class="bubble-ticks">✓✓</span>';
     return '<span class="bubble-ticks">✓</span>';
+  },
+
+  isOwnMessage(message, myVid) {
+    return message.isMine === true || Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid);
   },
 };
 

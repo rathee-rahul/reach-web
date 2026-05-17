@@ -1,12 +1,14 @@
 const ANDROID_ONLY_MESSAGE = "This can be changed using REACH Android app. Not available for iOS at present.";
 
-Screen.profile = function() {
+Screen.profile = async function() {
+  await syncProfileFromServer();
   const vid = Auth.getVid();
   const name = Auth.getName();
   const avatar = Auth.getAvatar();
   const photo = Auth.getPhoto();
-  const recoveryEmail = localStorage.getItem("reach_recovery_email") || "";
-  const recoveryText = recoveryEmail ? recoveryEmail : "Tap to verify email for account recovery";
+  const recoveryEmail = localStorage.getItem(Auth.RECOVERY_EMAIL_KEY) || "";
+  const recoveryVerified = localStorage.getItem(Auth.RECOVERY_VERIFIED_KEY) === "1";
+  const recoveryText = recoveryEmail ? `${recoveryEmail}${recoveryVerified ? "" : " (not verified)"}` : "Tap to verify email for account recovery";
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header"><span class="header-title">Profile</span></div>
@@ -44,6 +46,24 @@ function profileRow(icon, title, sub, action, badge = "") {
     <div class="row-info"><div class="row-name">${title}</div>${sub ? `<div class="row-sub">${Utils.escape(sub)}</div>` : ""}</div>
     ${badge ? `<span class="locked-badge">${Utils.escape(badge)}</span>` : `<span class="row-chevron">&rsaquo;</span>`}
   </div>`;
+}
+
+async function syncProfileFromServer() {
+  if (!Auth.getToken() && !window.PREVIEW_MODE) return;
+  try {
+    const data = await Api.getProfile(Auth.getToken());
+    const user = data.user || data;
+    if (user.display_name || user.displayName) {
+      localStorage.setItem(Auth.NAME_KEY, user.display_name || user.displayName);
+    }
+    if (user.avatar_id || user.avatarId) {
+      localStorage.setItem(Auth.AVATAR_KEY, String(user.avatar_id || user.avatarId));
+    }
+    if (user.profile_photo || user.profilePhoto) {
+      localStorage.setItem(Auth.PHOTO_KEY, user.profile_photo || user.profilePhoto);
+    }
+    Auth.saveRecoveryEmail(user.recovery_email || user.recoveryEmail || "", user.recovery_email_verified ?? user.recoveryEmailVerified ?? false);
+  } catch {}
 }
 
 function doLogout() {
@@ -138,19 +158,22 @@ async function editProfileName() {
 }
 
 function showAddRecoveryMailDialog() {
-  showInputSheet("Add Recovery Email", "you@example.com", localStorage.getItem("reach_recovery_email") || "", async (email) => {
+  showInputSheet("Add Recovery Email", "you@example.com", localStorage.getItem(Auth.RECOVERY_EMAIL_KEY) || "", async (email) => {
     if (!email) throw new Error("Enter recovery email");
     await Api.requestEmailVerification(Auth.getToken(), email);
     showToast("Verification code sent");
-    showInputSheet("Verify Email", "6-digit code", "", async (code) => {
-      if (!code) throw new Error("Enter verification code");
-      return Api.verifyRecoveryEmail(Auth.getToken(), email, code).then((data) => {
-        localStorage.setItem("reach_recovery_email", data.recovery_email || email);
-        showToast("Recovery mail verified");
-        Screen.profile();
-      });
-    }, { inputMode: "numeric", confirmLabel: "Verify" });
-  }, { type: "email", inputMode: "email", confirmLabel: "Send Code" });
+    setTimeout(() => showRecoveryCodeSheet(email), 0);
+  }, { inputMode: "email", confirmLabel: "Send Code" });
+}
+
+function showRecoveryCodeSheet(email) {
+  showInputSheet("Verify Email", "6-digit code", "", async (code) => {
+    if (!code) throw new Error("Enter verification code");
+    const data = await Api.verifyRecoveryEmail(Auth.getToken(), email, code);
+    Auth.saveRecoveryEmail(data.recovery_email || email, data.recovery_email_verified ?? true);
+    showToast("Recovery mail verified");
+    Screen.profile();
+  }, { inputMode: "numeric", confirmLabel: "Verify" });
 }
 
 Screen.settings = function() {

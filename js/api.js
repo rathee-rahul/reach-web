@@ -67,6 +67,7 @@ async function previewFunction(name, body) {
   if (name === "get-privacy-settings") return { settings: { read_receipts_enabled: true, last_seen_enabled: true, notify_direct_messages: true } };
   if (name === "list-blocked-users") return { blocked: [{ vid: "99887766", displayName: "Blocked User", avatarId: 5 }] };
   if (name === "update-profile") return { user: { display_name: body.display_name } };
+  if (name === "get-profile") return { user: { vid: "12345678", displayName: "Rahul", display_name: "Rahul", avatarId: 1, avatar_id: 1, recovery_email: "rahul@example.com", recovery_email_verified: true } };
   if (name === "update-profile-photo") return { profile_photo: body.profile_photo };
   if (name === "request-email-verification") return { ok: true };
   if (name === "verify-recovery-email") return { recovery_email: body.email, recovery_email_verified: true };
@@ -124,5 +125,6 @@ const Api = {
   unblockUser: (sessionToken, targetVid) => callFunction("unblock-user", { session_token: sessionToken, target_vid: targetVid }),
 
   updateProfileName: (sessionToken, displayName) => callFunction("update-profile", { session_token: sessionToken, display_name: displayName }),
+  getProfile: (sessionToken) => callFunction("get-profile", { session_token: sessionToken }),
   updateProfilePhoto: (sessionToken, profilePhoto) => callFunction("update-profile-photo", { session_token: sessionToken, profile_photo: profilePhoto }),
 };

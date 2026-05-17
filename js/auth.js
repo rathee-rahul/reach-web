@@ -4,6 +4,8 @@ const Auth = {
   NAME_KEY: "reach_display_name",
   AVATAR_KEY: "reach_avatar_id",
   PHOTO_KEY: "reach_profile_photo",
+  RECOVERY_EMAIL_KEY: "reach_recovery_email",
+  RECOVERY_VERIFIED_KEY: "reach_recovery_email_verified",
 
   getToken: () => localStorage.getItem(Auth.TOKEN_KEY),
   getVid: () => window.PREVIEW_MODE ? "12345678" : Utils.normalizeVid(localStorage.getItem(Auth.VID_KEY)),
@@ -20,6 +22,17 @@ const Auth = {
     return cleanVid;
   },
 
+  saveRecoveryEmail(email, verified = true) {
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    if (cleanEmail) {
+      localStorage.setItem(Auth.RECOVERY_EMAIL_KEY, cleanEmail);
+      localStorage.setItem(Auth.RECOVERY_VERIFIED_KEY, verified ? "1" : "0");
+    } else {
+      localStorage.removeItem(Auth.RECOVERY_EMAIL_KEY);
+      localStorage.removeItem(Auth.RECOVERY_VERIFIED_KEY);
+    }
+  },
+
   saveAccount(account) {
     const user = account.user || account.account || account;
     const token = account.session_token || account.sessionToken || user.session_token || user.sessionToken || "";
@@ -31,6 +44,10 @@ const Auth = {
     if (user.profile_photo || user.profilePhoto || account.profile_photo || account.profilePhoto) {
       localStorage.setItem(Auth.PHOTO_KEY, user.profile_photo || user.profilePhoto || account.profile_photo || account.profilePhoto);
     }
+    const recoveryEmail = user.recovery_email || user.recoveryEmail || account.recovery_email || account.recoveryEmail || "";
+    if (recoveryEmail) {
+      Auth.saveRecoveryEmail(recoveryEmail, user.recovery_email_verified ?? user.recoveryEmailVerified ?? account.recovery_email_verified ?? account.recoveryEmailVerified ?? true);
+    }
   },
 
   logout() {
@@ -41,5 +58,7 @@ const Auth = {
     localStorage.removeItem(Auth.NAME_KEY);
     localStorage.removeItem(Auth.AVATAR_KEY);
     localStorage.removeItem(Auth.PHOTO_KEY);
+    localStorage.removeItem(Auth.RECOVERY_EMAIL_KEY);
+    localStorage.removeItem(Auth.RECOVERY_VERIFIED_KEY);
   },
 };

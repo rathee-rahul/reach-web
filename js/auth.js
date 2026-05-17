@@ -12,6 +12,14 @@ const Auth = {
   getPhoto: () => localStorage.getItem(Auth.PHOTO_KEY) || "",
   isLoggedIn: () => window.PREVIEW_MODE || !!Auth.getToken(),
 
+  reconcileVid(vid) {
+    const cleanVid = Utils.normalizeVid(vid);
+    if (cleanVid && !window.PREVIEW_MODE) {
+      localStorage.setItem(Auth.VID_KEY, cleanVid);
+    }
+    return cleanVid;
+  },
+
   saveAccount(account) {
     const user = account.user || account.account || account;
     const token = account.session_token || account.sessionToken || user.session_token || user.sessionToken || "";

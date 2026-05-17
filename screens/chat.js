@@ -3,6 +3,7 @@ let chatTypingTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
 const recentSentMessages = [];
+const SENT_MARKERS_KEY = "reach_sent_message_markers";
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatPresenceTimer);
@@ -50,7 +51,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
 };
 
 async function loadMessages(chatId, options = {}) {
-  const ownerVid = Auth.getVid();
+  let ownerVid = Auth.getVid();
   let renderedCache = false;
   if (options.showCacheFirst) {
     const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
@@ -63,11 +64,9 @@ async function loadMessages(chatId, options = {}) {
   }
   try {
     const data = await Api.listMessages(Auth.getToken(), chatId);
-    currentChatMessages = preserveOutgoingMessages(
-      (data.messages || data || []).map(Utils.normalizeMessage),
-      currentChatMessages,
-      ownerVid
-    );
+    currentChatMessages = preserveOutgoingMessages((data.messages || data || []).map(Utils.normalizeMessage), currentChatMessages, ownerVid);
+    const reconciledVid = reconcileVidFromMessages(currentChatMessages, ownerVid);
+    if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
     renderMessages(currentChatMessages, ownerVid);
     scrollToBottom();
@@ -151,7 +150,9 @@ async function sendMsg(chatId) {
   try {
     const data = await Api.sendMessage(Auth.getToken(), chatId, text);
     const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
-    rememberSentMessage({ ...savedMessage, content: savedMessage.content || text, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true });
+    const outgoingMessage = { ...savedMessage, content: savedMessage.content || text, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true };
+    if (outgoingMessage.senderVid) Auth.reconcileVid(outgoingMessage.senderVid);
+    rememberSentMessage(outgoingMessage);
     await loadMessages(chatId);
   } catch (error) {
     showToast(error.message || "Send failed");
@@ -163,11 +164,14 @@ async function sendMsg(chatId) {
 
 function rememberSentMessage(message) {
   if (!message.content) return;
-  recentSentMessages.push({
+  const marker = {
     id: message.id || "",
+    chatId: message.chatId || currentChatId,
     content: message.content,
     sentAt: message.sentAt || new Date().toISOString(),
-  });
+  };
+  recentSentMessages.push(marker);
+  saveSentMarker(marker);
   while (recentSentMessages.length > 30) recentSentMessages.shift();
 }
 
@@ -175,13 +179,51 @@ function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
   const recentOutgoing = previousMessages
     .filter((message) => Utils.isOwnMessage(message, myVid) && message.content)
     .slice(-20);
+  const sentMarkers = loadSentMarkers(currentChatId);
   return freshMessages.map((message) => {
     if (message.isMine || Utils.normalizeVid(message.senderVid) === Utils.normalizeVid(myVid)) {
       return { ...message, isMine: true };
     }
-    const match = [...recentSentMessages, ...recentOutgoing].find((oldMessage) => isSameOutgoingMessage(oldMessage, message));
-    return match ? { ...message, senderVid: Utils.normalizeVid(myVid), isMine: true } : message;
+    const match = [...sentMarkers, ...recentSentMessages, ...recentOutgoing].find((oldMessage) => isSameOutgoingMessage(oldMessage, message));
+    return match ? { ...message, senderVid: message.senderVid || Utils.normalizeVid(myVid), isMine: true } : message;
   });
+}
+
+function reconcileVidFromMessages(messages, currentVid) {
+  const ownMessage = messages.find((message) => message.isMine && message.senderVid);
+  const ownVid = ownMessage ? Auth.reconcileVid(ownMessage.senderVid) : "";
+  if (!ownVid || ownVid === currentVid) return currentVid;
+  currentChatMessages = currentChatMessages.map((message) => (
+    message.isMine ? { ...message, senderVid: ownVid } : message
+  ));
+  return ownVid;
+}
+
+function loadSentMarkers(chatId) {
+  try {
+    const markers = JSON.parse(localStorage.getItem(SENT_MARKERS_KEY) || "[]");
+    const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+    const freshMarkers = markers.filter((marker) => new Date(marker.sentAt || 0).getTime() > cutoff);
+    if (freshMarkers.length !== markers.length) {
+      localStorage.setItem(SENT_MARKERS_KEY, JSON.stringify(freshMarkers.slice(-80)));
+    }
+    return freshMarkers.filter((marker) => marker.chatId === chatId);
+  } catch {
+    return [];
+  }
+}
+
+function saveSentMarker(marker) {
+  try {
+    const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+    const markers = JSON.parse(localStorage.getItem(SENT_MARKERS_KEY) || "[]")
+      .filter((item) => new Date(item.sentAt || 0).getTime() > cutoff);
+    const nextMarkers = [...markers, marker].filter((item, index, list) => {
+      if (!item.id) return true;
+      return list.findIndex((candidate) => candidate.id === item.id) === index;
+    }).slice(-80);
+    localStorage.setItem(SENT_MARKERS_KEY, JSON.stringify(nextMarkers));
+  } catch {}
 }
 
 function isSameOutgoingMessage(oldMessage, freshMessage) {

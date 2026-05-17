@@ -70,7 +70,7 @@ function renderChatList(contacts) {
           <div class="row-sub">${Utils.escape(latest || "Tap to open chat")}</div>
         </div>
         <div class="row-meta">
-          <span class="row-time">${Utils.formatTime(time)}</span>
+          <span class="row-time">${Utils.chatRowTime(time)}</span>
           ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ""}
         </div>
       </div>`;

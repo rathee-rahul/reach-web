@@ -62,11 +62,12 @@ Screen.addContact = function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
+        <button class="plain-icon-btn" onclick="go('contacts')" title="Back">${Icon("back")}</button>
         <span class="header-title">Add Contact</span>
       </div>
       <div class="scroll" style="padding:24px 20px;display:flex;flex-direction:column;gap:14px;">
         <input id="search-vid" type="text" inputmode="numeric" placeholder="Enter REACH ID (8 digits)" maxlength="8">
-        <button class="send-btn wide" id="search-btn" onclick="searchVid()" title="Find contact">${Icon("search")}</button>
+        <button class="send-btn wide labeled" id="search-btn" onclick="searchVid()" title="Find contact">${Icon("search", 18)}<span>Find</span></button>
         <div id="search-result"></div>
       </div>
       ${BottomNav("contacts")}

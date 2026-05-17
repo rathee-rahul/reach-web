@@ -124,43 +124,33 @@ function prepareProfilePhoto(dataUrl) {
 
 async function editProfileName() {
   const current = Auth.getName();
-  const name = window.prompt("Edit name", current);
-  if (name == null) return;
-  const cleanName = name.trim().replace(/\s+/g, " ");
-  if (!cleanName) {
-    showToast("Name cannot be empty");
-    return;
-  }
-  if (cleanName.length > 40) {
-    showToast("Name is too long");
-    return;
-  }
-  if (cleanName === current) return;
-  try {
+  showInputSheet("Edit Name", "Your name", current, async (name) => {
+    const cleanName = name.trim().replace(/\s+/g, " ");
+    if (!cleanName) throw new Error("Name cannot be empty");
+    if (cleanName.length > 40) throw new Error("Name is too long");
+    if (cleanName === current) return;
     const data = await Api.updateProfileName(Auth.getToken(), cleanName);
     const savedName = data.user?.display_name || data.display_name || cleanName;
     localStorage.setItem(Auth.NAME_KEY, savedName);
     showToast("Name updated");
     Screen.profile();
-  } catch (error) {
-    showToast(error.message || "Name update failed");
-  }
+  });
 }
 
 function showAddRecoveryMailDialog() {
-  const email = window.prompt("Add Recovery Mail", localStorage.getItem("reach_recovery_email") || "");
-  if (!email) return;
-  Api.requestEmailVerification(Auth.getToken(), email)
-    .then(() => {
-      const code = window.prompt("Enter the 6-digit code sent to your email");
-      if (!code) return;
+  showInputSheet("Add Recovery Email", "you@example.com", localStorage.getItem("reach_recovery_email") || "", async (email) => {
+    if (!email) throw new Error("Enter recovery email");
+    await Api.requestEmailVerification(Auth.getToken(), email);
+    showToast("Verification code sent");
+    showInputSheet("Verify Email", "6-digit code", "", async (code) => {
+      if (!code) throw new Error("Enter verification code");
       return Api.verifyRecoveryEmail(Auth.getToken(), email, code).then((data) => {
         localStorage.setItem("reach_recovery_email", data.recovery_email || email);
         showToast("Recovery mail verified");
         Screen.profile();
       });
-    })
-    .catch((error) => showToast(error.message));
+    }, { inputMode: "numeric", confirmLabel: "Verify" });
+  }, { type: "email", inputMode: "email", confirmLabel: "Send Code" });
 }
 
 Screen.settings = function() {

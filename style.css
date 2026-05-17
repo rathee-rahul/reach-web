@@ -920,6 +920,16 @@ button, a, [onclick] { touch-action: manipulation; }
   border-radius: 14px;
 }
 
+.send-btn.labeled {
+  width: auto;
+  min-width: 88px;
+  padding: 0 14px;
+  gap: 7px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .request-body {
   padding: 16px 0 24px;
 }
@@ -1133,4 +1143,28 @@ button, a, [onclick] { touch-action: manipulation; }
   border-radius: 10px;
   background: var(--surface-2);
   color: var(--muted);
+}
+
+.input-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-sheet input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+}
+
+.input-sheet button.confirm {
+  background: var(--green);
+  color: #fff;
+  border-radius: 10px;
+  border-top: 0;
+  font-weight: 700;
 }

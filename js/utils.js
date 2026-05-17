@@ -18,6 +18,17 @@ const Utils = {
     return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" });
   },
 
+  chatRowTime(ts) {
+    if (!ts) return "";
+    const d = new Date(ts);
+    const now = new Date();
+    if (d.toDateString() === now.toDateString()) return Utils.formatTime(ts);
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return d.toLocaleDateString([], { weekday: "short" });
+  },
+
   avatarColor(avatarId) {
     const colors = ["#1A7A5E", "#2E5EA0", "#7A4EA0", "#A04E4E", "#4E7A9E", "#6B7A4E"];
     return colors[(avatarId || 1) % colors.length];
@@ -59,6 +70,7 @@ const Utils = {
       id: raw.id || "",
       chatId: raw.chat_id || raw.chatId || "",
       senderVid,
+      senderName: raw.sender_name || raw.senderName || raw.display_name || raw.displayName || "",
       isMine: raw.is_mine === true || raw.isMine === true || raw.is_outgoing === true || raw.isOutgoing === true || raw.sent_by_me === true || raw.sentByMe === true,
       contentType: raw.content_type || raw.contentType || "text",
       content: raw.content || "",
@@ -110,4 +122,40 @@ function Icon(name, size = 22) {
     block: '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="m7 17 10-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   };
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${paths[name] || ""}</svg>`;
+}
+
+function showInputSheet(title, placeholder, defaultValue, onConfirm, options = {}) {
+  document.getElementById("input-sheet")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "input-sheet";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="action-sheet input-sheet">
+      <div class="action-title">${Utils.escape(title)}</div>
+      <input id="input-sheet-field" type="${Utils.escape(options.type || "text")}" inputmode="${Utils.escape(options.inputMode || "text")}"
+        placeholder="${Utils.escape(placeholder)}" value="${Utils.escape(defaultValue || "")}" autocomplete="off">
+      <button class="confirm" data-confirm="1">${Utils.escape(options.confirmLabel || "Save")}</button>
+      <button class="cancel" data-cancel="1">Cancel</button>
+    </div>`;
+  overlay.addEventListener("click", async (event) => {
+    if (event.target === overlay || event.target.dataset.cancel) {
+      overlay.remove();
+      return;
+    }
+    if (event.target.dataset.confirm) {
+      const button = event.target;
+      const field = document.getElementById("input-sheet-field");
+      const value = field ? field.value.trim() : "";
+      button.disabled = true;
+      try {
+        await onConfirm(value);
+        overlay.remove();
+      } catch (error) {
+        button.disabled = false;
+        showToast(error.message || "Could not save");
+      }
+    }
+  });
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => document.getElementById("input-sheet-field")?.focus());
 }

@@ -65,7 +65,15 @@ Screen.group = async function(groupId, groupName) {
       </div>
     </div>`;
   try {
-    const data = await Api.listGroupMessages(Auth.getToken(), groupId);
+    const [data, contactData] = await Promise.all([
+      Api.listGroupMessages(Auth.getToken(), groupId),
+      Api.listContacts(Auth.getToken()).catch(() => ({ contacts: [] })),
+    ]);
+    const nameMap = {};
+    (contactData.contacts || contactData || []).forEach((contact) => {
+      const vid = Utils.normalizeVid(contact.vid || contact.contact_vid || contact.contactVid || "");
+      if (vid) nameMap[vid] = contact.display_name || contact.displayName || "";
+    });
     const messages = (data.messages || data || []).map(Utils.normalizeMessage);
     const myVid = Auth.getVid();
     const el = document.getElementById("group-messages");
@@ -81,7 +89,7 @@ Screen.group = async function(groupId, groupName) {
       html += `
         <div class="bubble-wrap ${isOut ? "out" : "in"}">
           <div class="bubble ${isOut ? "out" : "in"}">
-            ${!isOut ? `<div class="group-sender">${Utils.escape(message.senderVid)}</div>` : ""}
+            ${!isOut ? `<div class="group-sender">${Utils.escape(message.senderName || nameMap[Utils.normalizeVid(message.senderVid)] || message.senderVid)}</div>` : ""}
             <div>${Utils.escape(message.content)}</div>
             <div class="bubble-meta">${Utils.formatTime(message.sentAt)}</div>
           </div>

@@ -23,6 +23,10 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   const chatArg = Utils.jsString(chatId);
   const contactVidArg = Utils.jsString(contactVid || "");
   const contactIdLabel = contactVid ? `ID ${Utils.escape(contactVid)}` : "ID unavailable";
+  const contact = await findChatContact(chatId, contactVid);
+  const headerName = contact?.display_name || contact?.displayName || contactName || "Chat";
+  const headerAvatar = contact?.avatar_id || contact?.avatarId || 1;
+  const headerPhoto = contact?.profile_photo || contact?.profilePhoto || "";
   stopRealtime();
   clearInterval(chatPresenceTimer);
   clearInterval(chatStatusTimer);
@@ -32,8 +36,9 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     <div class="screen">
       <div class="header">
         <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
+        ${Avatar(headerName, headerAvatar, 36, headerPhoto)}
         <div class="chat-title-area">
-          <div class="chat-title-name">${Utils.escape(contactName || "Chat")}</div>
+          <div class="chat-title-name">${Utils.escape(headerName)}</div>
           <div class="chat-subline">
             <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
             <span id="presence-label"></span>
@@ -44,11 +49,11 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
       </div>
+      <div id="typing-label">typing...</div>
       <div class="chat-retention-note">
         <span>Messages auto-delete from web after ~12 hours. Download the free app to keep your chat history.</span>
         <button onclick="openApkLink()">Get App</button>
       </div>
-      <div id="typing-label" style="display:none;background:var(--chat-bg);padding:0 14px 6px;color:var(--muted);font-size:12px;">typing...</div>
       <div class="chat-input-bar">
         <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
         <button class="send-btn" onclick="sendMsg(${chatArg})" title="Send">${Icon("send", 18)}</button>
@@ -65,6 +70,18 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     markSeenAndRefresh(chatId);
   });
 };
+
+async function findChatContact(chatId, contactVid) {
+  const contacts = window._allChatContacts?.length
+    ? window._allChatContacts
+    : await LocalCache.getChatList(Auth.getVid()).catch(() => []);
+  const vid = Utils.normalizeVid(contactVid);
+  return contacts.find((contact) => {
+    const candidateChatId = contact.chat_id || contact.chatId || "";
+    const candidateVid = Utils.normalizeVid(contact.vid || contact.contact_vid || contact.contactVid || "");
+    return (chatId && candidateChatId === chatId) || (vid && candidateVid === vid);
+  });
+}
 
 async function loadMessages(chatId, options = {}) {
   let ownerVid = Auth.getVid();
@@ -308,7 +325,7 @@ function startPresencePolling(contactVid) {
 function setPresenceText(contactVid, text) {
   const label = document.getElementById("presence-label");
   if (!label) return;
-  label.textContent = contactVid && text ? `- ${text}` : "";
+  label.textContent = contactVid && text ? text : "";
 }
 
 function showMsgMenu(messageId) {

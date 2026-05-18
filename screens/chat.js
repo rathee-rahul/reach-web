@@ -159,14 +159,16 @@ function handleTyping(chatId) {
 
 function startTypingPolling(chatId) {
   clearInterval(typingPollTimer);
-  typingPollTimer = setInterval(async () => {
+  const run = async () => {
     try {
       const data = await Api.getTyping(Auth.getToken(), chatId);
-      const isTyping = data.is_typing || data.isTyping || false;
+      const isTyping = data.typing === true || data.is_typing === true || data.isTyping === true;
       const label = document.getElementById("typing-label");
       if (label) label.style.display = isTyping ? "block" : "none";
     } catch {}
-  }, 2000);
+  };
+  run();
+  typingPollTimer = setInterval(run, 1000);
 }
 
 async function sendMsg(chatId) {
@@ -284,6 +286,7 @@ function startPresencePolling(contactVid) {
   const run = async () => {
     if (!contactVid) return;
     try {
+      Api.touchLastSeen(Auth.getToken()).catch(() => {});
       const data = await Api.getContactPresence(Auth.getToken(), contactVid);
       const presence = data.presence || data;
       if (presence.online) {
@@ -291,6 +294,10 @@ function startPresencePolling(contactVid) {
       } else if (presence.last_seen_at || presence.lastSeenAt) {
         const value = presence.last_seen_at || presence.lastSeenAt;
         setPresenceText(contactVid, `Last seen ${Utils.dateLabel(value)} ${Utils.formatTime(value)}`);
+      } else if (presence.visible === false) {
+        setPresenceText(contactVid, "");
+      } else {
+        setPresenceText(contactVid, "Offline");
       }
     } catch {}
   };

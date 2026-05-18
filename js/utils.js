@@ -84,9 +84,9 @@ const Utils = {
 
   statusIcon(msg, myVid) {
     if (!Utils.isOwnMessage(msg, myVid)) return "";
-    if (msg.seenAt) return '<span class="bubble-ticks seen">✓✓</span>';
-    if (msg.deliveredAt) return '<span class="bubble-ticks">✓✓</span>';
-    return '<span class="bubble-ticks">✓</span>';
+    if (msg.seenAt) return '<span class="bubble-ticks seen">&#10003;&#10003;</span>';
+    if (msg.deliveredAt) return '<span class="bubble-ticks">&#10003;&#10003;</span>';
+    return '<span class="bubble-ticks">&#10003;</span>';
   },
 
   isOwnMessage(message, myVid) {

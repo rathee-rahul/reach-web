@@ -68,6 +68,7 @@ async function previewFunction(name, body) {
     return { ok: true };
   }
   if (name === "get-contact-presence") return { online: true, visible: true, lastSeenAt: new Date().toISOString() };
+  if (name === "get-chat-typing") return { typing: true, typing_vid: "87654321" };
   if (name === "touch-last-seen" || name === "set-offline" || name === "set-chat-typing" || name === "mark-seen") return { ok: true };
   if (name === "list-groups") return { groups: [{ id: "preview-group-1", name: "REACH Team", memberCount: 3 }] };
   if (name === "list-group-messages") return { messages: [

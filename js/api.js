@@ -125,7 +125,7 @@ const Api = {
   listGroupMessages: (sessionToken, groupId) => callFunction("list-group-messages", { session_token: sessionToken, group_id: groupId }),
   getGroupInfo: (sessionToken, groupId) => callFunction("get-group-info", { session_token: sessionToken, group_id: groupId }),
 
-  getContactPresence: (sessionToken, contactVid) => callFunction("get-contact-presence", { session_token: sessionToken, target_vid: contactVid }),
+  getContactPresence: (sessionToken, contactVid) => callFunction("get-contact-presence", { session_token: sessionToken, target_vid: contactVid, contact_vid: contactVid }),
   touchLastSeen: (sessionToken) => callFunction("touch-last-seen", { session_token: sessionToken }),
   setOffline: (sessionToken) => callFunction("set-offline", { session_token: sessionToken }),
   setTyping: (sessionToken, chatId, isTyping) => callFunction("set-chat-typing", { session_token: sessionToken, chat_id: chatId, is_typing: isTyping }),

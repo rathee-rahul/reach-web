@@ -40,8 +40,8 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         <div class="chat-title-area">
           <div class="chat-title-name">${Utils.escape(headerName)}</div>
           <div class="chat-subline">
-            <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
             <span id="presence-label"></span>
+            <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
           </div>
         </div>
         <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>
@@ -325,6 +325,7 @@ function startPresencePolling(contactVid) {
 function setPresenceText(contactVid, text) {
   const label = document.getElementById("presence-label");
   if (!label) return;
+  label.classList.toggle("online", text === "Online");
   label.textContent = contactVid && text ? text : "";
 }
 

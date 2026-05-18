@@ -30,8 +30,8 @@ Screen.profile = async function() {
         </div>
         <div class="profile-section">
           ${profileRow("mail", "Add Recovery Mail", recoveryText, "showAddRecoveryMailDialog()")}
-          ${profileRow("shield", "Privacy & Security", "Read receipts, last seen and direct messages are on", "go('settings')")}
-          ${profileRow("block", "Blocked Users", "Visible here. Changes are Android app only.", "go('blocked')", "Locked")}
+          ${profileRow("shield", "Privacy & Security", "Read receipts, last seen and direct messages", "go('settings')")}
+          ${profileRow("block", "Blocked Users", "Block and unblock REACH IDs", "go('blocked')")}
           ${profileRow("lock", "App Lock", "On", "showAndroidOnlySettingsToast()", "Locked")}
           <div class="row" onclick="doLogout()"><div class="row-info"><div class="row-name" style="color:var(--red);">Sign Out</div></div></div>
         </div>
@@ -180,20 +180,65 @@ function showRecoveryCodeSheet(email) {
   }, { inputMode: "numeric", confirmLabel: "Verify" });
 }
 
-Screen.settings = function() {
+Screen.settings = async function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header"><button class="plain-icon-btn" onclick="go('profile')" title="Back">${Icon("back")}</button><span class="header-title">Privacy & Security</span></div>
-      <div class="scroll">
-        <div class="profile-section">
-          ${lockedSettingRow("Read Receipts", "Show when you have read messages", "On")}
-          ${lockedSettingRow("Last Seen", "Show your last active time", "On")}
-          ${lockedSettingRow("Direct Messages", "Allow direct messages and alerts", "On")}
-          ${lockedSettingRow("App Lock", "Protect REACH on this device", "On")}
-        </div>
-      </div>
+      <div class="scroll" id="settings-list"><div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div></div>
     </div>`;
+  try {
+    const data = await Api.getPrivacySettings(Auth.getToken());
+    renderPrivacySettings(data.settings || data || {});
+  } catch (error) {
+    document.getElementById("settings-list").innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>Privacy settings unavailable</b><span>Try again in a moment.</span></div>';
+    showToast(error.message || "Failed to load settings");
+  }
 };
+
+function renderPrivacySettings(settings) {
+  window._privacySettings = {
+    message_permission: settings.message_permission || settings.messagePermission || "request",
+    last_seen_enabled: settings.last_seen_enabled ?? settings.lastSeenEnabled ?? true,
+    read_receipts_enabled: settings.read_receipts_enabled ?? settings.readReceiptsEnabled ?? true,
+    app_lock_enabled: settings.app_lock_enabled ?? settings.appLockEnabled ?? false,
+    notify_direct_messages: settings.notify_direct_messages ?? settings.notifyDirectMessages ?? true,
+    notify_group_messages: settings.notify_group_messages ?? settings.notifyGroupMessages ?? true,
+    notify_contact_requests: settings.notify_contact_requests ?? settings.notifyContactRequests ?? true,
+    notify_show_preview: settings.notify_show_preview ?? settings.notifyShowPreview ?? true,
+  };
+  const s = window._privacySettings;
+  document.getElementById("settings-list").innerHTML = `
+    <div class="profile-section">
+      ${settingToggleRow("Read Receipts", "Show blue seen ticks when you read messages", "read_receipts_enabled", s.read_receipts_enabled)}
+      ${settingToggleRow("Last Seen", "Show online and last seen status", "last_seen_enabled", s.last_seen_enabled)}
+      ${settingToggleRow("Direct Messages", "Allow contacts to message you directly", "message_permission", s.message_permission === "direct")}
+      ${settingToggleRow("Message Preview", "Show message text in notifications", "notify_show_preview", s.notify_show_preview)}
+      ${lockedSettingRow("App Lock", "Use Android app to change app lock", s.app_lock_enabled ? "On" : "Off")}
+    </div>`;
+}
+
+function settingToggleRow(label, sub, key, enabled) {
+  return `<div class="row">
+    <div class="row-info"><div class="row-name">${Utils.escape(label)}</div><div class="row-sub">${Utils.escape(sub)}</div></div>
+    <button class="setting-toggle ${enabled ? "on" : ""}" onclick="togglePrivacySetting(${Utils.jsString(key)})">${enabled ? "On" : "Off"}</button>
+  </div>`;
+}
+
+async function togglePrivacySetting(key) {
+  const s = { ...(window._privacySettings || {}) };
+  if (key === "message_permission") {
+    s.message_permission = s.message_permission === "direct" ? "request" : "direct";
+  } else {
+    s[key] = !s[key];
+  }
+  try {
+    const data = await Api.updatePrivacySettings(Auth.getToken(), s);
+    renderPrivacySettings(data.settings || s);
+    showToast("Setting updated");
+  } catch (error) {
+    showToast(error.message || "Update failed");
+  }
+}
 
 function lockedSettingRow(label, sub, value) {
   return `<div class="row" onclick="showAndroidOnlySettingsToast()">
@@ -211,13 +256,14 @@ Screen.blocked = async function() {
     </div>`;
   try {
     const data = await Api.listBlockedUsers(Auth.getToken());
-    const users = data.blocked || data.users || data || [];
+    const users = data.blocked_users || data.blocked || data.users || data || [];
     const el = document.getElementById("blocked-list");
     if (!users.length) {
-      el.innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>No blocked users</b><span>Blocking and unblocking can be changed using REACH Android app.</span></div>';
+      el.innerHTML = `${blockUserPanel()}<div class="empty-card" style="padding:40px 20px;"><b>No blocked users</b><span>Block a REACH ID from here or from a chat menu.</span></div>`;
       return;
     }
     el.innerHTML = `
+      ${blockUserPanel()}
       <div class="profile-section">
         ${users.map((user) => {
           const name = user.display_name || user.displayName || "REACH User";
@@ -225,12 +271,50 @@ Screen.blocked = async function() {
           return `<div class="row">
             ${Avatar(name, user.avatar_id || user.avatarId || 1, 44, user.profile_photo || user.profilePhoto || "")}
             <div class="row-info"><div class="row-name">${Utils.escape(name)}</div><div class="row-sub">ID ${Utils.escape(vid)}</div></div>
-            <button class="locked-action" onclick="showAndroidOnlySettingsToast()">Locked</button>
+            <button class="locked-action" onclick="unblockWebUser(${Utils.jsString(vid)})">Unblock</button>
           </div>`;
         }).join("")}
       </div>`;
   } catch (error) {
-    document.getElementById("blocked-list").innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>Blocked Users</b><span>This section is available in REACH Android app.</span></div>';
+    document.getElementById("blocked-list").innerHTML = '<div class="empty-card" style="padding:40px 20px;"><b>Blocked Users</b><span>Try again in a moment.</span></div>';
     showToast(error.message || "Failed to load blocked users");
   }
 };
+
+function blockUserPanel() {
+  return `<div class="profile-section block-user-panel">
+    <div class="row">
+      <div class="row-info">
+        <div class="row-name">Block REACH ID</div>
+        <div class="row-sub">Blocked users cannot message you.</div>
+      </div>
+    </div>
+    <div class="block-input-row">
+      <input id="block-vid-input" type="text" inputmode="numeric" maxlength="8" placeholder="8-digit REACH ID">
+      <button class="send-btn wide labeled" onclick="blockVidFromProfile()" title="Block user">${Icon("block", 17)}<span>Block</span></button>
+    </div>
+  </div>`;
+}
+
+async function blockVidFromProfile() {
+  const input = document.getElementById("block-vid-input");
+  const vid = Utils.normalizeVid(input?.value || "");
+  if (vid.length !== 8) return showToast("Enter 8 digit REACH ID");
+  try {
+    await Api.blockUser(Auth.getToken(), vid, "silent");
+    showToast("User blocked");
+    Screen.blocked();
+  } catch (error) {
+    showToast(error.message || "Block failed");
+  }
+}
+
+async function unblockWebUser(vid) {
+  try {
+    await Api.unblockUser(Auth.getToken(), vid);
+    showToast("User unblocked");
+    Screen.blocked();
+  } catch (error) {
+    showToast(error.message || "Unblock failed");
+  }
+}

@@ -1,4 +1,5 @@
 let chatPresenceTimer = null;
+let chatStatusTimer = null;
 let chatTypingTimer = null;
 let typingPollTimer = null;
 let currentChatMessages = [];
@@ -8,9 +9,11 @@ const SENT_MARKERS_KEY = "reach_sent_message_markers";
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatPresenceTimer);
+  clearInterval(chatStatusTimer);
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
   chatPresenceTimer = null;
+  chatStatusTimer = null;
   chatTypingTimer = null;
   typingPollTimer = null;
 });
@@ -22,6 +25,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   const contactIdLabel = contactVid ? `ID ${Utils.escape(contactVid)}` : "ID unavailable";
   stopRealtime();
   clearInterval(chatPresenceTimer);
+  clearInterval(chatStatusTimer);
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
   document.getElementById("app").innerHTML = `
@@ -52,12 +56,13 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     </div>`;
 
   await loadMessages(chatId, { showCacheFirst: true });
-  Api.markSeen(Auth.getToken(), chatId).catch(() => {});
+  markSeenAndRefresh(chatId);
   startPresencePolling(contactVid);
   startTypingPolling(chatId);
+  startChatStatusPolling(chatId);
   subscribeToChat(chatId, async () => {
     await loadMessages(chatId);
-    Api.markSeen(Auth.getToken(), chatId).catch(() => {});
+    markSeenAndRefresh(chatId);
   });
 };
 
@@ -80,22 +85,36 @@ async function loadMessages(chatId, options = {}) {
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
     renderMessages(currentChatMessages, ownerVid);
-    scrollToBottom();
+    if (options.scroll !== false) scrollToBottom();
   } catch (error) {
     if (renderedCache) {
-      showToast("Showing saved messages");
+      if (!options.silent) showToast("Showing saved messages");
     } else {
       const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
       if (cachedMessages.length) {
         currentChatMessages = cachedMessages;
         renderMessages(currentChatMessages, ownerVid);
-        scrollToBottom();
-        showToast("Showing saved messages");
+        if (options.scroll !== false) scrollToBottom();
+        if (!options.silent) showToast("Showing saved messages");
       } else {
-        showToast(error.message || "Failed to load messages");
+        if (!options.silent) showToast(error.message || "Failed to load messages");
       }
     }
   }
+}
+
+async function markSeenAndRefresh(chatId) {
+  try {
+    await Api.markSeen(Auth.getToken(), chatId);
+    if (currentChatId === chatId) await loadMessages(chatId, { scroll: false, silent: true });
+  } catch {}
+}
+
+function startChatStatusPolling(chatId) {
+  clearInterval(chatStatusTimer);
+  chatStatusTimer = setInterval(() => {
+    if (currentChatId === chatId) loadMessages(chatId, { scroll: false, silent: true });
+  }, 2500);
 }
 
 function renderMessages(messages, myVid) {
@@ -282,7 +301,7 @@ function startPresencePolling(contactVid) {
 function setPresenceText(contactVid, text) {
   const label = document.getElementById("presence-label");
   if (!label) return;
-  label.textContent = contactVid && text ? `• ${text}` : "";
+  label.textContent = contactVid && text ? `- ${text}` : "";
 }
 
 function showMsgMenu(messageId) {
@@ -383,8 +402,10 @@ function showBlockSheet(contactVid) {
 }
 
 async function doBlock(contactVid, blockType) {
+  const vid = Utils.normalizeVid(contactVid);
+  if (!vid) return showToast("REACH ID unavailable");
   try {
-    await Api.blockUser(Auth.getToken(), contactVid, blockType);
+    await Api.blockUser(Auth.getToken(), vid, blockType);
     showToast("User blocked");
     go("chats");
   } catch (error) {

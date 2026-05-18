@@ -2,6 +2,7 @@ let chatPresenceTimer = null;
 let chatStatusTimer = null;
 let chatTypingTimer = null;
 let typingPollTimer = null;
+let chatListCacheRefreshTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
 const recentSentMessages = [];
@@ -12,10 +13,12 @@ window.addEventListener("hashchange", () => {
   clearInterval(chatStatusTimer);
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
+  clearTimeout(chatListCacheRefreshTimer);
   chatPresenceTimer = null;
   chatStatusTimer = null;
   chatTypingTimer = null;
   typingPollTimer = null;
+  chatListCacheRefreshTimer = null;
 });
 
 Screen.chat = async function(chatId, contactName, contactVid) {
@@ -32,6 +35,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   clearInterval(chatStatusTimer);
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
+  clearTimeout(chatListCacheRefreshTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
@@ -105,6 +109,7 @@ async function loadMessages(chatId, options = {}) {
     renderMessages(currentChatMessages, ownerVid);
     const latestChanged = latestMessageId(currentChatMessages) !== previousLatestId;
     if (options.scroll !== false || latestChanged) scrollToBottom();
+    if (latestChanged) queueChatListCacheRefresh(150);
     return latestChanged;
   } catch (error) {
     if (renderedCache) {
@@ -117,6 +122,7 @@ async function loadMessages(chatId, options = {}) {
         const latestChanged = latestMessageId(currentChatMessages) !== previousLatestId;
         if (options.scroll !== false || latestChanged) scrollToBottom();
         if (!options.silent) showToast("Showing saved messages");
+        if (latestChanged) queueChatListCacheRefresh(150);
         return latestChanged;
       } else {
         if (!options.silent) showToast(error.message || "Failed to load messages");
@@ -135,6 +141,7 @@ function latestMessageId(messages) {
 async function markSeenAndRefresh(chatId) {
   try {
     await Api.markSeen(Auth.getToken(), chatId);
+    queueChatListCacheRefresh(150);
     if (currentChatId === chatId) await loadMessages(chatId, { scroll: false, silent: true });
   } catch {}
 }
@@ -142,6 +149,7 @@ async function markSeenAndRefresh(chatId) {
 async function markSeenOnly(chatId) {
   try {
     await Api.markSeen(Auth.getToken(), chatId);
+    queueChatListCacheRefresh(150);
   } catch {}
 }
 
@@ -152,7 +160,7 @@ function startChatStatusPolling(chatId) {
       const changed = await loadMessages(chatId, { scroll: false, silent: true });
       if (changed) markSeenOnly(chatId);
     }
-  }, 2500);
+  }, 1500);
 }
 
 function renderMessages(messages, myVid) {
@@ -234,6 +242,7 @@ async function sendMsg(chatId) {
   rememberSentMessage(tempMessage);
   renderMessages(currentChatMessages, Auth.getVid());
   scrollToBottom();
+  queueChatListCacheRefresh(100);
   try {
     const data = await Api.sendMessage(Auth.getToken(), chatId, text);
     const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
@@ -241,6 +250,7 @@ async function sendMsg(chatId) {
     if (outgoingMessage.senderVid) Auth.reconcileVid(outgoingMessage.senderVid);
     rememberSentMessage(outgoingMessage);
     await loadMessages(chatId);
+    queueChatListCacheRefresh(100);
   } catch (error) {
     showToast(error.message || "Send failed");
     input.value = text;
@@ -361,6 +371,15 @@ function isNearBottom() {
   const el = document.getElementById("chat-messages");
   if (!el) return true;
   return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+}
+
+function queueChatListCacheRefresh(delay = 300) {
+  clearTimeout(chatListCacheRefreshTimer);
+  chatListCacheRefreshTimer = setTimeout(() => {
+    if (typeof loadChatListFromServer === "function") {
+      loadChatListFromServer({ showError: false, preserveSearch: true });
+    }
+  }, delay);
 }
 
 function showMsgMenu(messageId) {

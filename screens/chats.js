@@ -43,7 +43,7 @@ Screen.chats = async function() {
     if (location.hash.slice(1).split("/")[0] === "chats" || !location.hash.slice(1)) {
       loadChatListFromServer({ showError: false, preserveSearch: true });
     }
-  }, 4000);
+  }, 2500);
 };
 
 async function loadChatListFromServer(options = {}) {

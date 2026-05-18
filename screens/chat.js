@@ -1,5 +1,6 @@
 let chatPresenceTimer = null;
 let chatTypingTimer = null;
+let typingPollTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
 const recentSentMessages = [];
@@ -8,8 +9,10 @@ const SENT_MARKERS_KEY = "reach_sent_message_markers";
 window.addEventListener("hashchange", () => {
   clearInterval(chatPresenceTimer);
   clearTimeout(chatTypingTimer);
+  clearInterval(typingPollTimer);
   chatPresenceTimer = null;
   chatTypingTimer = null;
+  typingPollTimer = null;
 });
 
 Screen.chat = async function(chatId, contactName, contactVid) {
@@ -20,6 +23,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   stopRealtime();
   clearInterval(chatPresenceTimer);
   clearTimeout(chatTypingTimer);
+  clearInterval(typingPollTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
@@ -37,8 +41,8 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
       </div>
       <div class="chat-retention-note">
-        <span>Messages are automatically deleted from web after about 12 hours.</span>
-        <button onclick="openApkLink()">Use app to keep chats</button>
+        <span>Messages auto-delete from web after ~12 hours. Download the free app to keep your chat history.</span>
+        <button onclick="openApkLink()">Get App</button>
       </div>
       <div id="typing-label" style="display:none;background:var(--chat-bg);padding:0 14px 6px;color:var(--muted);font-size:12px;">typing...</div>
       <div class="chat-input-bar">
@@ -50,6 +54,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   await loadMessages(chatId, { showCacheFirst: true });
   Api.markSeen(Auth.getToken(), chatId).catch(() => {});
   startPresencePolling(contactVid);
+  startTypingPolling(chatId);
   subscribeToChat(chatId, async () => {
     await loadMessages(chatId);
     Api.markSeen(Auth.getToken(), chatId).catch(() => {});
@@ -131,6 +136,18 @@ function handleTyping(chatId) {
   Api.setTyping(Auth.getToken(), chatId, true).catch(() => {});
   clearTimeout(chatTypingTimer);
   chatTypingTimer = setTimeout(() => Api.setTyping(Auth.getToken(), chatId, false).catch(() => {}), 2500);
+}
+
+function startTypingPolling(chatId) {
+  clearInterval(typingPollTimer);
+  typingPollTimer = setInterval(async () => {
+    try {
+      const data = await Api.getTyping(Auth.getToken(), chatId);
+      const isTyping = data.is_typing || data.isTyping || false;
+      const label = document.getElementById("typing-label");
+      if (label) label.style.display = isTyping ? "block" : "none";
+    } catch {}
+  }, 2000);
 }
 
 async function sendMsg(chatId) {
@@ -352,7 +369,25 @@ function showChatMenu(chatId, contactVid) {
   showActionSheet("Chat options", [
     ["Copy REACH ID", () => copyContactVid(contactVid)],
     ["Report user", () => Api.reportUser(Auth.getToken(), contactVid, "reported via web").then(() => showToast("Reported")).catch((error) => showToast(error.message))],
-    ["Block user", () => showDownloadModal("Block User", "Block")],
+    ["Block user", () => showBlockSheet(contactVid)],
     ["Full chat tools", () => showDownloadModal("Full Chat Tools", "App")],
   ]);
+}
+
+function showBlockSheet(contactVid) {
+  showActionSheet("Block user", [
+    ["Block silently", () => doBlock(contactVid, "silent")],
+    ["Block and delete chat", () => doBlock(contactVid, "delete")],
+    ["Block and report", () => doBlock(contactVid, "report")],
+  ]);
+}
+
+async function doBlock(contactVid, blockType) {
+  try {
+    await Api.blockUser(Auth.getToken(), contactVid, blockType);
+    showToast("User blocked");
+    go("chats");
+  } catch (error) {
+    showToast(error.message || "Block failed");
+  }
 }

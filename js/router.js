@@ -13,7 +13,7 @@ function touchWebPresence() {
 function startWebPresenceHeartbeat() {
   if (reachPresenceHeartbeat) return;
   touchWebPresence();
-  reachPresenceHeartbeat = setInterval(touchWebPresence, 10000);
+  reachPresenceHeartbeat = setInterval(touchWebPresence, 5000);
 }
 
 function stopWebPresenceHeartbeat() {
@@ -89,6 +89,10 @@ const Router = {
         stopWebPresenceHeartbeat();
       }
     });
+    window.addEventListener("focus", touchWebPresence);
+    window.addEventListener("pageshow", touchWebPresence);
+    window.addEventListener("pointerdown", touchWebPresence, { passive: true });
+    window.addEventListener("touchstart", touchWebPresence, { passive: true });
     window.addEventListener("beforeunload", stopWebPresenceHeartbeat);
     Router.handle();
   },

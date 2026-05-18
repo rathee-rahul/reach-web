@@ -40,8 +40,8 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         <div class="chat-title-area">
           <div class="chat-title-name">${Utils.escape(headerName)}</div>
           <div class="chat-subline">
-            <span id="presence-label"></span>
             <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
+            <span id="presence-label"></span>
           </div>
         </div>
         <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>

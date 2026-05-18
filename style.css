@@ -138,11 +138,12 @@ body {
 .back-btn { color: var(--green); font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 8px 2px 0; }
 .chat-title-area { flex: 1; min-width: 0; align-self: center; }
 .chat-title-name { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.chat-subline { margin-top: 2px; min-height: 16px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; }
-.chat-contact-id { flex: 1 1 auto; min-width: 0; width: auto; border: none; background: transparent; color: var(--green); padding: 0; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.chat-subline { margin-top: 2px; min-height: 16px; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: normal; overflow: hidden; flex-wrap: wrap; line-height: 1.2; }
+.chat-contact-id { flex: 0 1 auto; min-width: 74px; width: auto; border: none; background: transparent; color: var(--green); padding: 0; font-size: 12px; font-weight: 700; cursor: pointer; text-align: left; overflow: hidden; text-overflow: ellipsis; }
 .chat-subline #presence-label {
-  flex: 0 0 auto;
-  max-width: 58%;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--muted);

@@ -35,7 +35,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
-        <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
+        <button class="chat-back-btn" onclick="go('chats')" title="Back">${Icon("back", 28)}</button>
         ${Avatar(headerName, headerAvatar, 36, headerPhoto)}
         <div class="chat-title-area">
           <div class="chat-title-name">${Utils.escape(headerName)}</div>
@@ -46,14 +46,14 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         </div>
         <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>
       </div>
-      <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
-        <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
-      </div>
-      <div id="typing-label">typing...</div>
       <div class="chat-retention-note">
         <span>Messages auto-delete from web after ~12 hours. Download the free app to keep your chat history.</span>
         <button onclick="openApkLink()">Get App</button>
       </div>
+      <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
+        <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
+      </div>
+      <div id="typing-label">typing...</div>
       <div class="chat-input-bar">
         <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
         <button class="send-btn" onclick="sendMsg(${chatArg})" title="Send">${Icon("send", 18)}</button>

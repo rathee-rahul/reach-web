@@ -6,6 +6,16 @@ const PREVIEW_MODE = LOCAL_PREVIEW_HOSTS.includes(window.location.hostname)
   && new URLSearchParams(window.location.search).get("preview") === "1";
 window.PREVIEW_MODE = PREVIEW_MODE;
 
+function getWebFingerprint() {
+  let fp = localStorage.getItem("reach_web_fp");
+  if (!fp) {
+    fp = "web_" + Math.random().toString(36).substring(2, 18)
+       + "_" + Date.now().toString(36);
+    localStorage.setItem("reach_web_fp", fp);
+  }
+  return fp;
+}
+
 const PreviewData = {
   contacts: [
     { vid: "87654321", displayName: "Rahul", avatarId: 1, chatId: "preview-chat-1", lastMessage: "Okay, testing REACH web", lastMessageAt: new Date().toISOString(), unreadCount: 2 },
@@ -80,6 +90,7 @@ const Api = {
       display_name: displayName,
       password,
       avatar_id: avatarId,
+      device_fp: getWebFingerprint(),
       recovery_email: recoveryEmail,
       google_id_token: googleIdToken,
       date_of_birth: dateOfBirth,
@@ -87,7 +98,12 @@ const Api = {
       fcm_token: null,
     }),
 
-  login: (vid, password) => callFunction("login", { vid, password, device_fp: "web" }),
+  login: (vid, password) => callFunction("login", {
+    vid,
+    password,
+    device_fp: getWebFingerprint(),
+  }),
+
   deleteAccount: (sessionToken) => callFunction("delete-account", { session_token: sessionToken }),
 
   findContact: (sessionToken, vid) => callFunction("find-contact", { session_token: sessionToken, vid }),

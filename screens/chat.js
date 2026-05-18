@@ -103,7 +103,9 @@ async function loadMessages(chatId, options = {}) {
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
     renderMessages(currentChatMessages, ownerVid);
-    if (options.scroll !== false || latestMessageId(currentChatMessages) !== previousLatestId) scrollToBottom();
+    const latestChanged = latestMessageId(currentChatMessages) !== previousLatestId;
+    if (options.scroll !== false || latestChanged) scrollToBottom();
+    return latestChanged;
   } catch (error) {
     if (renderedCache) {
       if (!options.silent) showToast("Showing saved messages");
@@ -112,13 +114,16 @@ async function loadMessages(chatId, options = {}) {
       if (cachedMessages.length) {
         currentChatMessages = cachedMessages;
         renderMessages(currentChatMessages, ownerVid);
-        if (options.scroll !== false || latestMessageId(currentChatMessages) !== previousLatestId) scrollToBottom();
+        const latestChanged = latestMessageId(currentChatMessages) !== previousLatestId;
+        if (options.scroll !== false || latestChanged) scrollToBottom();
         if (!options.silent) showToast("Showing saved messages");
+        return latestChanged;
       } else {
         if (!options.silent) showToast(error.message || "Failed to load messages");
       }
     }
   }
+  return false;
 }
 
 function latestMessageId(messages) {
@@ -134,10 +139,19 @@ async function markSeenAndRefresh(chatId) {
   } catch {}
 }
 
+async function markSeenOnly(chatId) {
+  try {
+    await Api.markSeen(Auth.getToken(), chatId);
+  } catch {}
+}
+
 function startChatStatusPolling(chatId) {
   clearInterval(chatStatusTimer);
-  chatStatusTimer = setInterval(() => {
-    if (currentChatId === chatId) loadMessages(chatId, { scroll: false, silent: true });
+  chatStatusTimer = setInterval(async () => {
+    if (currentChatId === chatId) {
+      const changed = await loadMessages(chatId, { scroll: false, silent: true });
+      if (changed) markSeenOnly(chatId);
+    }
   }, 2500);
 }
 

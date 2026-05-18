@@ -1,4 +1,30 @@
 const Screen = window.Screen || (window.Screen = {});
+let reachPresenceHeartbeat = null;
+
+function isPreviewMode() {
+  return window.location.href.includes("preview=1");
+}
+
+function touchWebPresence() {
+  if (isPreviewMode() || !Auth.isLoggedIn() || document.visibilityState === "hidden") return;
+  Api.touchLastSeen(Auth.getToken()).catch(() => {});
+}
+
+function startWebPresenceHeartbeat() {
+  if (reachPresenceHeartbeat) return;
+  touchWebPresence();
+  reachPresenceHeartbeat = setInterval(touchWebPresence, 10000);
+}
+
+function stopWebPresenceHeartbeat() {
+  if (reachPresenceHeartbeat) {
+    clearInterval(reachPresenceHeartbeat);
+    reachPresenceHeartbeat = null;
+  }
+  if (!isPreviewMode() && Auth.isLoggedIn()) {
+    Api.setOffline(Auth.getToken()).catch(() => {});
+  }
+}
 
 const Router = {
   routes: {
@@ -36,8 +62,9 @@ const Router = {
 
   handle() {
     const parsed = Router.parse();
-    const preview = window.location.href.includes("preview=1");
+    const preview = isPreviewMode();
     if (!preview && !Auth.isLoggedIn() && !["landing", "login", "create"].includes(parsed.route)) {
+      stopWebPresenceHeartbeat();
       Router.go("landing");
       return;
     }
@@ -45,12 +72,24 @@ const Router = {
       Router.go("chats");
       return;
     }
+    if (!preview && Auth.isLoggedIn()) {
+      startWebPresenceHeartbeat();
+    }
     const handler = Router.routes[parsed.route] || Router.routes.chats;
     handler(parsed.params);
   },
 
   init() {
     window.addEventListener("hashchange", Router.handle);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        startWebPresenceHeartbeat();
+        touchWebPresence();
+      } else {
+        stopWebPresenceHeartbeat();
+      }
+    });
+    window.addEventListener("beforeunload", stopWebPresenceHeartbeat);
     Router.handle();
   },
 };

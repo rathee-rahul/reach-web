@@ -1,3 +1,10 @@
+let chatListTimer = null;
+
+window.addEventListener("hashchange", () => {
+  clearInterval(chatListTimer);
+  chatListTimer = null;
+});
+
 Screen.chats = async function() {
   const vid = Auth.getVid();
   document.getElementById("app").innerHTML = `
@@ -20,7 +27,6 @@ Screen.chats = async function() {
 
   const ownerVid = Auth.getVid();
   LocalCache.cleanOldChats().catch(() => {});
-  Api.touchLastSeen(Auth.getToken()).catch(() => {});
   if (!window._offlineListenerAdded) {
     window._offlineListenerAdded = true;
     window.addEventListener("beforeunload", () => Api.setOffline(Auth.getToken()).catch(() => {}));
@@ -31,20 +37,36 @@ Screen.chats = async function() {
     renderChatList(cachedContacts);
   }
 
+  await loadChatListFromServer({ showError: !cachedContacts.length });
+  clearInterval(chatListTimer);
+  chatListTimer = setInterval(() => {
+    if (location.hash.slice(1).split("/")[0] === "chats" || !location.hash.slice(1)) {
+      loadChatListFromServer({ showError: false, preserveSearch: true });
+    }
+  }, 4000);
+};
+
+async function loadChatListFromServer(options = {}) {
+  const ownerVid = Auth.getVid();
+  Api.touchLastSeen(Auth.getToken()).catch(() => {});
   try {
     const data = await Api.listContacts(Auth.getToken());
     const contacts = data.contacts || data || [];
     window._allChatContacts = contacts;
     await LocalCache.saveChatList(ownerVid, contacts);
-    renderChatList(contacts);
-  } catch (error) {
-    if (cachedContacts.length) {
-      showToast("Showing saved chats");
+    if (options.preserveSearch) {
+      filterChats(document.getElementById("chat-search")?.value || "");
     } else {
+      renderChatList(contacts);
+    }
+  } catch (error) {
+    if (window._allChatContacts?.length) {
+      showToast("Showing saved chats");
+    } else if (options.showError) {
       showToast(error.message || "Failed to load chats");
     }
   }
-};
+}
 
 function renderChatList(contacts) {
   const el = document.getElementById("chat-list");

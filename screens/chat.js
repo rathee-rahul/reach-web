@@ -86,6 +86,7 @@ async function findChatContact(chatId, contactVid) {
 async function loadMessages(chatId, options = {}) {
   let ownerVid = Auth.getVid();
   let renderedCache = false;
+  const previousLatestId = latestMessageId(currentChatMessages);
   if (options.showCacheFirst) {
     const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
     if (cachedMessages.length) {
@@ -102,7 +103,7 @@ async function loadMessages(chatId, options = {}) {
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
     renderMessages(currentChatMessages, ownerVid);
-    if (options.scroll !== false) scrollToBottom();
+    if (options.scroll !== false || latestMessageId(currentChatMessages) !== previousLatestId) scrollToBottom();
   } catch (error) {
     if (renderedCache) {
       if (!options.silent) showToast("Showing saved messages");
@@ -111,13 +112,19 @@ async function loadMessages(chatId, options = {}) {
       if (cachedMessages.length) {
         currentChatMessages = cachedMessages;
         renderMessages(currentChatMessages, ownerVid);
-        if (options.scroll !== false) scrollToBottom();
+        if (options.scroll !== false || latestMessageId(currentChatMessages) !== previousLatestId) scrollToBottom();
         if (!options.silent) showToast("Showing saved messages");
       } else {
         if (!options.silent) showToast(error.message || "Failed to load messages");
       }
     }
   }
+}
+
+function latestMessageId(messages) {
+  const visible = messages.filter((message) => !message.deletedAt);
+  const latest = visible[visible.length - 1];
+  return latest ? `${latest.id || ""}:${latest.sentAt || ""}:${latest.content || ""}` : "";
 }
 
 async function markSeenAndRefresh(chatId) {
@@ -181,7 +188,12 @@ function startTypingPolling(chatId) {
       const data = await Api.getTyping(Auth.getToken(), chatId);
       const isTyping = data.typing === true || data.is_typing === true || data.isTyping === true;
       const label = document.getElementById("typing-label");
-      if (label) label.style.display = isTyping ? "block" : "none";
+      if (label) {
+        const changed = label.style.display !== (isTyping ? "block" : "none");
+        const keepBottom = isNearBottom();
+        label.style.display = isTyping ? "block" : "none";
+        if (changed && keepBottom) scrollToBottom();
+      }
     } catch {}
   };
   run();
@@ -299,7 +311,7 @@ function isSameOutgoingMessage(oldMessage, freshMessage) {
 
 function startPresencePolling(contactVid) {
   clearInterval(chatPresenceTimer);
-  setPresenceText(contactVid, "");
+  setPresenceText(contactVid, "Checking...");
   const run = async () => {
     if (!contactVid) return;
     try {
@@ -312,11 +324,13 @@ function startPresencePolling(contactVid) {
         const value = presence.last_seen_at || presence.lastSeenAt;
         setPresenceText(contactVid, `Last seen ${Utils.dateLabel(value)} ${Utils.formatTime(value)}`);
       } else if (presence.visible === false) {
-        setPresenceText(contactVid, "");
+        setPresenceText(contactVid, "Last seen hidden");
       } else {
         setPresenceText(contactVid, "Offline");
       }
-    } catch {}
+    } catch {
+      setPresenceText(contactVid, "Offline");
+    }
   };
   run();
   chatPresenceTimer = setInterval(run, 5000);
@@ -327,6 +341,12 @@ function setPresenceText(contactVid, text) {
   if (!label) return;
   label.classList.toggle("online", text === "Online");
   label.textContent = contactVid && text ? text : "";
+}
+
+function isNearBottom() {
+  const el = document.getElementById("chat-messages");
+  if (!el) return true;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
 
 function showMsgMenu(messageId) {

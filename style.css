@@ -251,6 +251,7 @@ button, a, [onclick] { touch-action: manipulation; }
 
 /* â”€â”€ Bubbles â”€â”€ */
 .bubble-wrap { padding: 2px 12px; display: flex; flex-direction: column; }
+.bubble-wrap:last-child { padding-bottom: 12px; }
 .bubble-wrap.out { align-items: flex-end; }
 .bubble-wrap.in { align-items: flex-start; }
 .bubble {
@@ -300,8 +301,8 @@ button, a, [onclick] { touch-action: manipulation; }
 /* â”€â”€ Typing indicator â”€â”€ */
 #typing-label {
   background: var(--chat-bg);
-  min-height: 24px;
-  padding: 5px 16px 4px;
+  min-height: 22px;
+  padding: 3px 16px 4px;
   font-size: 12px;
   color: var(--muted);
   font-style: italic;

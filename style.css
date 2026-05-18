@@ -125,6 +125,16 @@ body {
   overscroll-behavior: contain;
   scrollbar-width: thin;
 }
+.chat-message-list {
+  background: var(--chat-bg);
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  scroll-padding-bottom: 92px;
+}
+.chat-message-list.keyboard-active {
+  padding-bottom: 86px;
+}
 .header {
   background: var(--surface);
   border-bottom: 0.5px solid var(--line);

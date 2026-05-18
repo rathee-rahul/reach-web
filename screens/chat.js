@@ -3,6 +3,7 @@ let chatStatusTimer = null;
 let chatTypingTimer = null;
 let typingPollTimer = null;
 let chatListCacheRefreshTimer = null;
+let keyboardScrollTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
 const recentSentMessages = [];
@@ -14,11 +15,13 @@ window.addEventListener("hashchange", () => {
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
   clearTimeout(chatListCacheRefreshTimer);
+  clearTimeout(keyboardScrollTimer);
   chatPresenceTimer = null;
   chatStatusTimer = null;
   chatTypingTimer = null;
   typingPollTimer = null;
   chatListCacheRefreshTimer = null;
+  keyboardScrollTimer = null;
 });
 
 Screen.chat = async function(chatId, contactName, contactVid) {
@@ -36,6 +39,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   clearTimeout(chatTypingTimer);
   clearInterval(typingPollTimer);
   clearTimeout(chatListCacheRefreshTimer);
+  clearTimeout(keyboardScrollTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
@@ -54,7 +58,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         <span>Messages auto-delete from web after ~12 hours. Download the free app to keep your chat history.</span>
         <button onclick="openApkLink()">Get App</button>
       </div>
-      <div class="scroll" id="chat-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
+      <div class="scroll chat-message-list" id="chat-messages">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
       </div>
       <div id="typing-label">typing...</div>
@@ -69,6 +73,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   startPresencePolling(contactVid);
   startTypingPolling(chatId);
   startChatStatusPolling(chatId);
+  attachKeyboardScrollAssist();
   subscribeToChat(chatId, async () => {
     await loadMessages(chatId);
     markSeenAndRefresh(chatId);
@@ -194,7 +199,38 @@ function renderMessages(messages, myVid) {
 
 function scrollToBottom() {
   const el = document.getElementById("chat-messages");
-  if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  if (!el) return;
+  requestAnimationFrame(() => {
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  });
+}
+
+function nudgeBottomForKeyboard() {
+  const list = document.getElementById("chat-messages");
+  if (!list) return;
+  list.classList.add("keyboard-active");
+  scrollToBottom();
+  clearTimeout(keyboardScrollTimer);
+  keyboardScrollTimer = setTimeout(scrollToBottom, 80);
+  setTimeout(scrollToBottom, 180);
+  setTimeout(scrollToBottom, 360);
+}
+
+function clearKeyboardPaddingSoon() {
+  clearTimeout(keyboardScrollTimer);
+  keyboardScrollTimer = setTimeout(() => {
+    document.getElementById("chat-messages")?.classList.remove("keyboard-active");
+  }, 180);
+}
+
+function attachKeyboardScrollAssist() {
+  const input = document.getElementById("msg-input");
+  if (!input) return;
+  input.addEventListener("focus", nudgeBottomForKeyboard);
+  input.addEventListener("click", nudgeBottomForKeyboard);
+  input.addEventListener("input", nudgeBottomForKeyboard);
+  input.addEventListener("blur", clearKeyboardPaddingSoon);
 }
 
 function handleTyping(chatId) {

@@ -1,6 +1,7 @@
 const SUPABASE_URL = "https://eqocgylkivhkyqeqggff.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_Zl8gfZ21GaarCuM840W-Iw_hYxIREtV";
 const APK_DRIVE_URL = "";
+const MAX_TEXT_MESSAGE_LENGTH = 4000;
 const LOCAL_PREVIEW_HOSTS = ["127.0.0.1", "localhost"];
 const PREVIEW_MODE = LOCAL_PREVIEW_HOSTS.includes(window.location.hostname)
   && new URLSearchParams(window.location.search).get("preview") === "1";
@@ -116,13 +117,23 @@ const Api = {
   respondRequest: (sessionToken, requestId, accept) => callFunction("respond-request", { session_token: sessionToken, request_id: requestId, accept }),
 
   listMessages: (sessionToken, chatId) => callFunction("list-messages", { session_token: sessionToken, chat_id: chatId }),
-  sendMessage: (sessionToken, chatId, content) => callFunction("send-message", { session_token: sessionToken, chat_id: chatId, content_type: "text", content }),
+  sendMessage: (sessionToken, chatId, content) => {
+    if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");
+    return callFunction("send-message", { session_token: sessionToken, chat_id: chatId, content_type: "text", content });
+  },
   markSeen: (sessionToken, chatId) => callFunction("mark-seen", { session_token: sessionToken, chat_id: chatId }),
-  editMessage: (sessionToken, messageId, content) => callFunction("edit-message", { session_token: sessionToken, message_id: messageId, content }),
+  editMessage: (sessionToken, messageId, content) => {
+    if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");
+    return callFunction("edit-message", { session_token: sessionToken, message_id: messageId, content });
+  },
   deleteMessage: (sessionToken, messageId, scope = "me") => callFunction("delete-message", { session_token: sessionToken, message_id: messageId, scope }),
 
   listGroups: (sessionToken) => callFunction("list-groups", { session_token: sessionToken }),
   listGroupMessages: (sessionToken, groupId) => callFunction("list-group-messages", { session_token: sessionToken, group_id: groupId }),
+  sendGroupMessage: (sessionToken, groupId, content) => {
+    if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");
+    return callFunction("send-group-message", { session_token: sessionToken, group_id: groupId, content_type: "text", content });
+  },
   getGroupInfo: (sessionToken, groupId) => callFunction("get-group-info", { session_token: sessionToken, group_id: groupId }),
 
   getContactPresence: (sessionToken, contactVid) => callFunction("get-contact-presence", { session_token: sessionToken, target_vid: contactVid, contact_vid: contactVid }),

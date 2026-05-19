@@ -63,7 +63,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
       </div>
       <div id="typing-label">typing...</div>
       <div class="chat-input-bar">
-        <input type="text" id="msg-input" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
+        <input type="text" id="msg-input" maxlength="4000" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
         <button class="send-btn" onclick="sendMsg(${chatArg})" title="Send">${Icon("send", 18)}</button>
       </div>
     </div>`;
@@ -262,6 +262,7 @@ async function sendMsg(chatId) {
   const input = document.getElementById("msg-input");
   const text = input.value.trim();
   if (!text) return;
+  if (text.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
   input.value = "";
   Api.setTyping(Auth.getToken(), chatId, false).catch(() => {});
   const tempId = `temp-${Date.now()}`;
@@ -273,6 +274,7 @@ async function sendMsg(chatId) {
     contentType: "text",
     content: text,
     sentAt: new Date().toISOString(),
+    localOnly: true,
   });
   currentChatMessages = [...currentChatMessages, tempMessage];
   rememberSentMessage(tempMessage);
@@ -285,13 +287,16 @@ async function sendMsg(chatId) {
     const outgoingMessage = { ...savedMessage, content: savedMessage.content || text, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true };
     if (outgoingMessage.senderVid) Auth.reconcileVid(outgoingMessage.senderVid);
     rememberSentMessage(outgoingMessage);
+    currentChatMessages = currentChatMessages.filter((message) => message.id !== tempId);
     await loadMessages(chatId);
     queueChatListCacheRefresh(100);
   } catch (error) {
     showToast(error.message || "Send failed");
-    input.value = text;
-    currentChatMessages = currentChatMessages.filter((message) => message.id !== tempId);
+    currentChatMessages = currentChatMessages.map((message) => (
+      message.id === tempId ? { ...message, failed: true, localOnly: true } : message
+    ));
     renderMessages(currentChatMessages, Auth.getVid());
+    scrollToBottom();
   }
 }
 
@@ -313,7 +318,7 @@ function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
     .filter((message) => Utils.isOwnMessage(message, myVid) && message.content)
     .slice(-20);
   const sentMarkers = loadSentMarkers(currentChatId);
-  return freshMessages.map((message) => {
+  const reconciled = freshMessages.map((message) => {
     const ownVid = Utils.normalizeVid(myVid);
     if (message.isMine || (ownVid && Utils.normalizeVid(message.senderVid) === ownVid)) {
       return { ...message, isMine: true };
@@ -321,6 +326,11 @@ function preserveOutgoingMessages(freshMessages, previousMessages, myVid) {
     const match = [...sentMarkers, ...recentSentMessages, ...recentOutgoing].find((oldMessage) => isSameOutgoingMessage(oldMessage, message));
     return match ? { ...message, senderVid: message.senderVid || Utils.normalizeVid(myVid), isMine: true } : message;
   });
+  const pending = previousMessages.filter((message) => (
+    (message.localOnly || message.failed)
+    && !reconciled.some((fresh) => fresh.id === message.id || isSameOutgoingMessage(message, fresh))
+  ));
+  return [...pending, ...reconciled].sort((a, b) => String(a.sentAt || "").localeCompare(String(b.sentAt || "")));
 }
 
 function reconcileVidFromMessages(messages, currentVid) {
@@ -481,6 +491,7 @@ function showMessageInfo(message) {
 async function editMsg(messageId, oldContent, chatId) {
   const content = window.prompt("Edit message", oldContent);
   if (!content || content.trim() === oldContent) return;
+  if (content.trim().length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
   try {
     await Api.editMessage(Auth.getToken(), messageId, content.trim());
     await loadMessages(chatId);

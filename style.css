@@ -303,6 +303,7 @@ button, a, [onclick] { touch-action: manipulation; }
 }
 .bubble.in .bubble-ticks { color: var(--muted); }
 .bubble-ticks.seen { color: #53BDEB; }
+.bubble-ticks.failed { color: #CC3A3A; letter-spacing: 0; }
 
 /* â”€â”€ Date pill â”€â”€ */
 .date-pill { text-align: center; padding: 4px 0 8px; font-size: 11px; color: var(--muted); }

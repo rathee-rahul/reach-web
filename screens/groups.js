@@ -1,3 +1,13 @@
+let groupRefreshTimer = null;
+let currentGroupMessages = [];
+let currentGroupId = "";
+let currentGroupNameMap = {};
+
+window.addEventListener("hashchange", () => {
+  clearInterval(groupRefreshTimer);
+  groupRefreshTimer = null;
+});
+
 Screen.groups = async function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
@@ -27,12 +37,13 @@ Screen.groups = async function() {
       const name = group.name || group.group_name || "Group";
       const id = group.id || group.group_id || "";
       const memberCount = Number(group.member_count || group.memberCount || 0);
+      const latest = group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`;
       return `
         <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
           <div class="group-avatar">G</div>
           <div class="row-info">
             <div class="row-name">${Utils.escape(name)}</div>
-            <div class="row-sub">${memberCount} member${memberCount === 1 ? "" : "s"}</div>
+            <div class="row-sub">${Utils.escape(latest)}</div>
           </div>
           <span class="row-chevron">&rsaquo;</span>
         </div>`;
@@ -43,6 +54,9 @@ Screen.groups = async function() {
 };
 
 Screen.group = async function(groupId, groupName) {
+  currentGroupId = groupId;
+  const groupArg = Utils.jsString(groupId);
+  clearInterval(groupRefreshTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
@@ -52,52 +66,139 @@ Screen.group = async function(groupId, groupName) {
         </div>
         <button class="plain-icon-btn" onclick="showDownloadModal('Group Tools','G')" title="Group tools">${Icon("more")}</button>
       </div>
-      <div class="dl-banner">
-        <div class="dl-banner-text">Group messaging is read-only on web for now.</div>
-        <button class="dl-banner-btn" onclick="openApkLink()">Download</button>
-      </div>
-      <div class="scroll" id="group-messages" style="background:var(--chat-bg);padding:8px 0;display:flex;flex-direction:column;">
+      <div class="scroll chat-message-list" id="group-messages">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading group...</div>
       </div>
-      <div class="chat-input-bar" style="opacity:0.5;pointer-events:none;">
-        <input type="text" placeholder="Group messaging is in the Android app" disabled>
-        <button class="send-btn" disabled>${Icon("send", 18)}</button>
+      <div class="chat-input-bar">
+        <input type="text" id="group-msg-input" maxlength="4000" placeholder="Message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendGroupMsg(${groupArg});}">
+        <button class="send-btn" onclick="sendGroupMsg(${groupArg})" title="Send">${Icon("send", 18)}</button>
       </div>
     </div>`;
+  await loadGroupThread(groupId);
+  groupRefreshTimer = setInterval(() => {
+    if (currentGroupId === groupId) loadGroupThread(groupId, { scroll: false, silent: true });
+  }, 2000);
+};
+
+async function loadGroupThread(groupId, options = {}) {
   try {
     const [data, contactData] = await Promise.all([
       Api.listGroupMessages(Auth.getToken(), groupId),
       Api.listContacts(Auth.getToken()).catch(() => ({ contacts: [] })),
     ]);
-    const nameMap = {};
+    currentGroupNameMap = {};
     (contactData.contacts || contactData || []).forEach((contact) => {
       const vid = Utils.normalizeVid(contact.vid || contact.contact_vid || contact.contactVid || "");
-      if (vid) nameMap[vid] = contact.display_name || contact.displayName || "";
+      if (vid) currentGroupNameMap[vid] = contact.display_name || contact.displayName || "";
     });
-    const messages = (data.messages || data || []).map(Utils.normalizeMessage);
-    const myVid = Auth.getVid();
-    const el = document.getElementById("group-messages");
-    if (!el) return;
-    if (!messages.length) {
-      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No messages yet</div>';
-      return;
-    }
-    let html = "";
-    messages.forEach((message) => {
-      if (message.deletedAt) return;
-      const isOut = Utils.isOwnMessage(message, myVid);
-      html += `
-        <div class="bubble-wrap ${isOut ? "out" : "in"}">
-          <div class="bubble ${isOut ? "out" : "in"}">
-            ${!isOut ? `<div class="group-sender">${Utils.escape(message.senderName || nameMap[Utils.normalizeVid(message.senderVid)] || message.senderVid)}</div>` : ""}
-            <div>${Utils.escape(message.content)}</div>
-            <div class="bubble-meta">${Utils.formatTime(message.sentAt)}</div>
-          </div>
-        </div>`;
-    });
-    el.innerHTML = html;
-    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    const serverMessages = (data.messages || data || []).map(Utils.normalizeMessage);
+    const merged = preservePendingGroupMessages(serverMessages, currentGroupMessages);
+    const changed = groupMessagesSnapshot(merged) !== groupMessagesSnapshot(currentGroupMessages);
+    currentGroupMessages = merged;
+    renderGroupMessages(currentGroupMessages);
+    if (options.scroll !== false || changed) scrollGroupToBottom();
+    return changed;
   } catch (error) {
-    showToast(error.message || "Failed to load group");
+    if (!options.silent) showToast(error.message || "Failed to load group");
+    return false;
   }
-};
+}
+
+function preservePendingGroupMessages(serverMessages, previousMessages) {
+  const pending = previousMessages.filter((message) => message.localOnly || message.failed);
+  const serverById = new Set(serverMessages.map((message) => message.id));
+  const merged = [
+    ...pending.filter((message) => !serverById.has(message.id)),
+    ...serverMessages,
+  ];
+  return merged.sort((a, b) => String(a.sentAt || "").localeCompare(String(b.sentAt || "")));
+}
+
+function renderGroupMessages(messages) {
+  const el = document.getElementById("group-messages");
+  if (!el) return;
+  if (!messages.length) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">No messages yet</div>';
+    return;
+  }
+  const myVid = Auth.getVid();
+  let lastDate = "";
+  let html = "";
+  messages.forEach((message) => {
+    if (message.deletedAt) return;
+    const label = Utils.dateLabel(message.sentAt);
+    if (label !== lastDate) {
+      html += `<div class="date-pill"><span>${label}</span></div>`;
+      lastDate = label;
+    }
+    const isOut = Utils.isOwnMessage(message, myVid);
+    const sender = message.senderName || currentGroupNameMap[Utils.normalizeVid(message.senderVid)] || message.senderVid;
+    html += `
+      <div class="bubble-wrap ${isOut ? "out" : "in"}">
+        <div class="bubble ${isOut ? "out" : "in"}">
+          ${!isOut ? `<div class="group-sender">${Utils.escape(sender)}</div>` : ""}
+          <div>${Utils.escape(message.content)}</div>
+          <div class="bubble-meta">${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}</div>
+        </div>
+      </div>`;
+  });
+  el.innerHTML = html;
+}
+
+async function sendGroupMsg(groupId) {
+  const input = document.getElementById("group-msg-input");
+  const text = input?.value.trim() || "";
+  if (!text) return;
+  if (text.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
+  input.value = "";
+  const tempId = `temp-group-${Date.now()}`;
+  const tempMessage = Utils.normalizeMessage({
+    id: tempId,
+    groupId,
+    senderVid: Auth.getVid(),
+    isMine: true,
+    contentType: "text",
+    content: text,
+    sentAt: new Date().toISOString(),
+    localOnly: true,
+  });
+  currentGroupMessages = [...currentGroupMessages, tempMessage];
+  renderGroupMessages(currentGroupMessages);
+  scrollGroupToBottom();
+  try {
+    const data = await Api.sendGroupMessage(Auth.getToken(), groupId, text);
+    const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
+    if (savedMessage.senderVid) Auth.reconcileVid(savedMessage.senderVid);
+    currentGroupMessages = currentGroupMessages.filter((message) => message.id !== tempId);
+    await loadGroupThread(groupId);
+  } catch (error) {
+    showToast(error.message || "Send failed");
+    currentGroupMessages = currentGroupMessages.map((message) => (
+      message.id === tempId ? { ...message, failed: true, localOnly: true } : message
+    ));
+    renderGroupMessages(currentGroupMessages);
+    scrollGroupToBottom();
+  }
+}
+
+function scrollGroupToBottom() {
+  const el = document.getElementById("group-messages");
+  if (!el) return;
+  requestAnimationFrame(() => {
+    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+  });
+}
+
+function groupMessagesSnapshot(messages) {
+  return messages.map((message) => [
+    message.id,
+    message.senderVid,
+    message.content,
+    message.sentAt,
+    message.deliveredAt,
+    message.seenAt,
+    message.localOnly,
+    message.failed,
+  ].join(":")).join("|");
+}

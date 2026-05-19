@@ -79,13 +79,16 @@ const Utils = {
       seenAt: raw.seen_at || raw.seenAt || "",
       editedAt: raw.edited_at || raw.editedAt || "",
       deletedAt: raw.deleted_at || raw.deletedAt || "",
+      localOnly: raw.local_only === true || raw.localOnly === true,
+      failed: raw.failed === true || raw.status === "failed",
     };
   },
 
   statusIcon(msg, myVid) {
     if (!Utils.isOwnMessage(msg, myVid)) return "";
+    if (msg.failed) return '<span class="bubble-ticks failed">&#10003;</span>';
     if (msg.seenAt) return '<span class="bubble-ticks seen">&#10003;&#10003;</span>';
-    if (msg.deliveredAt) return '<span class="bubble-ticks">&#10003;&#10003;</span>';
+    if (msg.deliveredAt || !msg.localOnly) return '<span class="bubble-ticks">&#10003;&#10003;</span>';
     return '<span class="bubble-ticks">&#10003;</span>';
   },
 

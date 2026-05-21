@@ -48,6 +48,32 @@ async function callFunction(name, body) {
   return data;
 }
 
+async function callRpc(name, body, options = {}) {
+  if (PREVIEW_MODE) return previewRpc(name, body || {});
+  const headers = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_ANON_KEY,
+    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+  };
+  if (options.minimal) headers.Prefer = "return=minimal";
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body || {}),
+  });
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+  }
+  if (!res.ok) throw new Error(data.error || data.message || data.hint || "Request failed");
+  return data;
+}
+
 async function previewFunction(name, body) {
   await new Promise((resolve) => setTimeout(resolve, 80));
   if (name === "login" || name === "generate-vid") {
@@ -84,6 +110,43 @@ async function previewFunction(name, body) {
   if (name === "request-email-verification") return { ok: true };
   if (name === "verify-recovery-email") return { recovery_email: body.email, recovery_email_verified: true };
   return {};
+}
+
+async function previewRpc(name, body) {
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  if (name === "start_voice_call") {
+    return [{
+      call_id: `preview-call-${Date.now()}`,
+      chat_id: body.p_chat_id,
+      caller_vid: "12345678",
+      callee_vid: "87654321",
+      status: "ringing",
+      started_at: new Date().toISOString(),
+    }];
+  }
+  if (name === "update_voice_call_status") {
+    return [{
+      call_id: body.p_call_id,
+      chat_id: "preview-chat-1",
+      caller_vid: "12345678",
+      callee_vid: "87654321",
+      status: body.p_status || "ended",
+      started_at: new Date().toISOString(),
+      connected_at: body.p_status === "connected" ? new Date().toISOString() : null,
+      ended_at: ["ended", "declined", "missed", "failed", "cancelled", "busy"].includes(body.p_status) ? new Date().toISOString() : null,
+      end_reason: body.p_end_reason || "",
+    }];
+  }
+  if (name === "send_call_signal") return {};
+  if (name === "list_call_signals") return [];
+  if (name === "list_voice_calls") return [];
+  return {};
+}
+
+function firstRpcRow(data) {
+  if (Array.isArray(data)) return data[0] || {};
+  if (Array.isArray(data?.result)) return data.result[0] || {};
+  return data || {};
 }
 
 const Api = {
@@ -155,4 +218,39 @@ const Api = {
   updateProfileName: (sessionToken, displayName) => callFunction("update-profile", { session_token: sessionToken, display_name: displayName }),
   getProfile: (sessionToken) => callFunction("get-profile", { session_token: sessionToken }),
   updateProfilePhoto: (sessionToken, profilePhoto) => callFunction("update-profile-photo", { session_token: sessionToken, profile_photo: profilePhoto }),
+
+  startVoiceCall: async (sessionToken, chatId) => firstRpcRow(await callRpc("start_voice_call", {
+    p_session_token: sessionToken,
+    p_chat_id: chatId,
+  })),
+  updateVoiceCallStatus: async (sessionToken, callId, status, endReason = "") => firstRpcRow(await callRpc("update_voice_call_status", {
+    p_session_token: sessionToken,
+    p_call_id: callId,
+    p_status: status,
+    p_end_reason: endReason,
+  })),
+  sendCallSignal: (sessionToken, callId, signalType, payload = {}) => callRpc("send_call_signal", {
+    p_session_token: sessionToken,
+    p_call_id: callId,
+    p_signal_type: signalType,
+    p_payload: payload || {},
+  }, { minimal: true }),
+  listCallSignals: (sessionToken, callId) => callRpc("list_call_signals", {
+    p_session_token: sessionToken,
+    p_call_id: callId,
+  }),
+  listVoiceCalls: (sessionToken, limit = 50) => callRpc("list_voice_calls", {
+    p_session_token: sessionToken,
+    p_limit: limit,
+  }),
+  sendCallPush: (sessionToken, chatId, callId, callerName, callerVid) => callFunction("send-push", {
+    session_token: sessionToken,
+    scope: "call",
+    scope_id: chatId,
+    call_id: callId,
+    caller_name: callerName || "REACH",
+    caller_vid: callerVid || "",
+    content_type: "call",
+    content: "Incoming voice call",
+  }),
 };

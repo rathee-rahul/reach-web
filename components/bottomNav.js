@@ -1,6 +1,7 @@
 function BottomNav(active) {
   const tabs = [
     { id: "chats", label: "Chats", icon: navChatIcon },
+    { id: "calls", label: "Calls", icon: navCallIcon },
     { id: "requests", label: "Requests", icon: navBellIcon },
     { id: "contacts", label: "Contacts", icon: navPeopleIcon },
     { id: "profile", label: "Profile", icon: navUserIcon },
@@ -25,6 +26,10 @@ function navChatIcon(active) {
 
 function navBellIcon(active) {
   return navSvg(active, `<path d="M18 9.5a6 6 0 1 0-12 0c0 5-2 5.5-2 6.7 0 .7.55 1.3 1.25 1.3h13.5c.7 0 1.25-.6 1.25-1.3 0-1.2-2-1.7-2-6.7Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 20a2.8 2.8 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>`);
+}
+
+function navCallIcon(active) {
+  return navSvg(active, `<path d="M7.2 4.5 9.5 4c.7-.1 1.3.3 1.5 1l.7 2.5c.2.6-.1 1.3-.7 1.6l-1.2.7a10.5 10.5 0 0 0 4.4 4.4l.7-1.2c.3-.6 1-.9 1.6-.7l2.5.7c.7.2 1.1.8 1 1.5l-.5 2.3c-.2.9-1 1.5-1.9 1.5A13.8 13.8 0 0 1 5.7 6.4c0-.9.6-1.7 1.5-1.9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>`);
 }
 
 function navPeopleIcon(active) {

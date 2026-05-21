@@ -33,6 +33,8 @@ Screen.chat = async function(chatId, contactName, contactVid) {
   const headerName = contact?.display_name || contact?.displayName || contactName || "Chat";
   const headerAvatar = contact?.avatar_id || contact?.avatarId || 1;
   const headerPhoto = contact?.profile_photo || contact?.profilePhoto || "";
+  const headerNameArg = Utils.jsString(headerName);
+  const headerPhotoArg = Utils.jsString(headerPhoto);
   stopRealtime();
   clearInterval(chatPresenceTimer);
   clearInterval(chatStatusTimer);
@@ -52,6 +54,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
             <span id="presence-label"></span>
           </div>
         </div>
+        <button class="plain-icon-btn" onclick="startWebCallFromChat(${chatArg}, ${headerNameArg}, ${contactVidArg}, ${Number(headerAvatar) || 1}, ${headerPhotoArg})" title="Voice call">${Icon("call")}</button>
         <button class="plain-icon-btn" onclick="showChatMenu(${chatArg}, ${contactVidArg})" title="Chat options">${Icon("more")}</button>
       </div>
       <div class="chat-retention-note">
@@ -79,6 +82,16 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     markSeenAndRefresh(chatId);
   });
 };
+
+function startWebCallFromChat(chatId, name, vid, avatar, photo) {
+  WebCalls.startOutgoing({
+    chatId,
+    name,
+    vid,
+    avatar,
+    photo,
+  });
+}
 
 async function findChatContact(chatId, contactVid) {
   const contacts = window._allChatContacts?.length

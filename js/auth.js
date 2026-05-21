@@ -53,6 +53,7 @@ const Auth = {
   logout() {
     const token = Auth.getToken();
     if (token) Api.setOffline(token).catch(() => {});
+    window.WebCalls?.reset?.();
     localStorage.removeItem(Auth.TOKEN_KEY);
     localStorage.removeItem(Auth.VID_KEY);
     localStorage.removeItem(Auth.NAME_KEY);

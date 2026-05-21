@@ -45,7 +45,11 @@ Screen.createAccount = function() {
           <input id="create-gender" type="hidden">
 
           <label class="field-label">Password (minimum 8 characters)</label>
-          <div class="icon-field"><span>Lock</span><input id="create-password" type="password" placeholder="Choose a password" oninput="updateWebPasswordStrength()"></div>
+          <div class="icon-field password-field">
+            <span>Lock</span>
+            <input id="create-password" type="password" placeholder="Choose a password" oninput="updateWebPasswordStrength()">
+            <button type="button" class="password-toggle" aria-label="Show password" onclick="togglePasswordVisible('create-password', this)">${Icon("eye", 18)}</button>
+          </div>
           <div class="password-bar"><i id="password-fill"></i></div>
           <p class="small-muted">Do not use your REACH ID as your password.</p>
 
@@ -75,7 +79,11 @@ Screen.login = function() {
           <label class="field-label">REACH ID</label>
           <input id="login-vid" type="text" inputmode="numeric" maxlength="8" placeholder="8-digit REACH ID">
           <label class="field-label">Password</label>
-          <input id="login-password" type="password" placeholder="Password">
+          <div class="icon-field password-field login-password-field">
+            <span>Lock</span>
+            <input id="login-password" type="password" placeholder="Password">
+            <button type="button" class="password-toggle" aria-label="Show password" onclick="togglePasswordVisible('login-password', this)">${Icon("eye", 18)}</button>
+          </div>
           <button class="reach-primary" id="login-btn" onclick="doLogin()">Sign In</button>
           <button class="link-btn align-right" onclick="showDownloadModal('Account Recovery','Mail')">Forgot VID / Password?</button>
         </div>
@@ -160,6 +168,18 @@ function updateWebPasswordStrength() {
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
   fill.style.width = password ? `${Math.max(22, score * 25)}%` : "0";
   fill.style.background = score <= 1 ? "#F87171" : score <= 3 ? "#FBBF24" : "var(--green)";
+}
+
+function togglePasswordVisible(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (!input || !button) return;
+  const shouldShow = input.type === "password";
+  input.type = shouldShow ? "text" : "password";
+  button.setAttribute("aria-label", shouldShow ? "Hide password" : "Show password");
+  button.innerHTML = Icon(shouldShow ? "eyeOff" : "eye", 18);
+  input.focus();
+  const end = input.value.length;
+  try { input.setSelectionRange(end, end); } catch {}
 }
 
 function startGoogleSignup() {

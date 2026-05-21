@@ -33,6 +33,7 @@ const Router = {
     create: () => Screen.createAccount(),
     "vid-ready": () => Screen.vidReady(),
     chats: () => Screen.chats(),
+    calls: () => Screen.calls(),
     chat: (params) => Screen.chat(params.id, params.name, params.vid),
     requests: () => Screen.requests(),
     contacts: () => Screen.contacts(),
@@ -74,6 +75,9 @@ const Router = {
     }
     if (!preview && Auth.isLoggedIn()) {
       startWebPresenceHeartbeat();
+      WebCalls?.startForegroundMonitor?.();
+    } else {
+      WebCalls?.stopForegroundMonitor?.();
     }
     const handler = Router.routes[parsed.route] || Router.routes.chats;
     handler(parsed.params);
@@ -93,6 +97,8 @@ const Router = {
     window.addEventListener("pageshow", touchWebPresence);
     window.addEventListener("pointerdown", touchWebPresence, { passive: true });
     window.addEventListener("touchstart", touchWebPresence, { passive: true });
+    window.addEventListener("pointerdown", () => WebCalls?.unlockAudio?.(), { passive: true });
+    window.addEventListener("touchstart", () => WebCalls?.unlockAudio?.(), { passive: true });
     window.addEventListener("beforeunload", stopWebPresenceHeartbeat);
     Router.handle();
   },

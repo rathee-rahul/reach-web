@@ -114,6 +114,10 @@ function Icon(name, size = 22) {
     search: '<circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.9"/><path d="m16 16 3.5 3.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/>',
     send: '<path d="M4 12 20 5l-7 16-2-7-7-2Z" fill="currentColor"/>',
     mic: '<path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    micOff: '<path d="m4 4 16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9 9v2a3 3 0 0 0 4.9 2.3M15 10.1V6a3 3 0 0 0-5.1-2.1M5 11a7 7 0 0 0 9.1 6.7M19 11a7 7 0 0 1-1.8 4.7M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    call: '<path d="M7.2 4.5 9.5 4c.7-.1 1.3.3 1.5 1l.7 2.5c.2.6-.1 1.3-.7 1.6l-1.2.7a10.5 10.5 0 0 0 4.4 4.4l.7-1.2c.3-.6 1-.9 1.6-.7l2.5.7c.7.2 1.1.8 1 1.5l-.5 2.3c-.2.9-1 1.5-1.9 1.5A13.8 13.8 0 0 1 5.7 6.4c0-.9.6-1.7 1.5-1.9Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    speaker: '<path d="M4 9v6h4l5 4V5L8 9H4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M16 9.5a4 4 0 0 1 0 5M18.8 7a8 8 0 0 1 0 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+    speakerOff: '<path d="m4 4 16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 9v6h4l5 4v-6M13 8.5V5L9.7 7.6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
     more: '<circle cx="12" cy="5" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="19" r="1.8" fill="currentColor"/>',
     back: '<path d="M15 6 9 12l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
     copy: '<rect x="8" y="8" width="10" height="12" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.7"/>',
@@ -122,6 +126,8 @@ function Icon(name, size = 22) {
     shield: '<path d="M12 3 19 6v5c0 4.5-2.8 8-7 10-4.2-2-7-5.5-7-10V6l7-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
     mail: '<rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="m5 8 7 5 7-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
     lock: '<rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8"/>',
+    eye: '<path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/>',
+    eyeOff: '<path d="m4 4 16 16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.5 5.4A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3.2 3.8M14.1 14.1A3 3 0 0 1 9.9 9.9M6.3 7.2C3.8 8.8 2.5 12 2.5 12s3.5 7 9.5 7c1 0 1.9-.2 2.8-.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
     block: '<circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="m7 17 10-10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
   };
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" aria-hidden="true">${paths[name] || ""}</svg>`;

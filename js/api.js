@@ -239,6 +239,9 @@ const Api = {
     p_session_token: sessionToken,
     p_call_id: callId,
   }),
+  listPendingCallOffers: (sessionToken) => callRpc("list_pending_call_offers", {
+    p_session_token: sessionToken,
+  }),
   listVoiceCalls: (sessionToken, limit = 50) => callRpc("list_voice_calls", {
     p_session_token: sessionToken,
     p_limit: limit,

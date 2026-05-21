@@ -5,11 +5,13 @@ const WEB_TURN_PASSWORD = "7oUYSLUYvac7Nic/LURtWtmnqPI=";
 
 const WebCalls = (() => {
   const SIGNAL_POLL_MS = 1200;
+  const INCOMING_POLL_MS = 2500;
   const CALL_TIMEOUT_MS = 45000;
   let client = null;
   let channel = null;
   let current = null;
   let pollTimer = null;
+  let incomingPollTimer = null;
   let timeoutTimer = null;
   let processedSignals = new Set();
   let toneContext = null;
@@ -31,7 +33,9 @@ const WebCalls = (() => {
   }
 
   function startForegroundMonitor() {
-    if (window.PREVIEW_MODE || !Auth.isLoggedIn() || !window.supabase) return;
+    if (window.PREVIEW_MODE || !Auth.isLoggedIn()) return;
+    startIncomingOfferPolling();
+    if (!window.supabase) return;
     const vid = Utils.normalizeVid(Auth.getVid());
     if (!vid) return;
     const { createClient } = window.supabase;
@@ -54,6 +58,7 @@ const WebCalls = (() => {
   function stopForegroundMonitor() {
     if (client && channel) client.removeChannel(channel);
     channel = null;
+    stopIncomingOfferPolling();
   }
 
   function reset() {
@@ -151,6 +156,25 @@ const WebCalls = (() => {
     if (!Auth.isLoggedIn() || !callId) return;
     try {
       const signals = await Api.listCallSignals(Auth.getToken(), callId);
+      for (const signal of normalizeSignals(signals)) handleSignal(signal);
+    } catch {}
+  }
+
+  function startIncomingOfferPolling() {
+    stopIncomingOfferPolling();
+    pollPendingCallOffers();
+    incomingPollTimer = setInterval(pollPendingCallOffers, INCOMING_POLL_MS);
+  }
+
+  function stopIncomingOfferPolling() {
+    clearInterval(incomingPollTimer);
+    incomingPollTimer = null;
+  }
+
+  async function pollPendingCallOffers() {
+    if (!Auth.isLoggedIn() || current) return;
+    try {
+      const signals = await Api.listPendingCallOffers(Auth.getToken());
       for (const signal of normalizeSignals(signals)) handleSignal(signal);
     } catch {}
   }

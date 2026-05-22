@@ -101,10 +101,11 @@ const WebCalls = (() => {
       setTimeout(sendOutgoingPushOnce, 900);
       setupPeer();
       const offer = await current.pc.createOffer({ offerToReceiveAudio: true });
-      await current.pc.setLocalDescription(offer);
+      const tunedOffer = tuneAudioDescription(offer);
+      await current.pc.setLocalDescription(tunedOffer);
       await sendSignal("call_offer", {
-        type: offer.type,
-        sdp: offer.sdp,
+        type: tunedOffer.type,
+        sdp: tunedOffer.sdp,
         chat_id: current.chatId,
         caller_vid: Auth.getVid(),
         caller_name: Auth.getName() || "REACH User",
@@ -257,11 +258,12 @@ const WebCalls = (() => {
       current.remoteDescriptionSet = true;
       await drainIce();
       const answer = await current.pc.createAnswer();
-      await current.pc.setLocalDescription(answer);
+      const tunedAnswer = tuneAudioDescription(answer);
+      await current.pc.setLocalDescription(tunedAnswer);
       current.status = "Connecting...";
       render();
       await Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "connected", "");
-      await sendSignal("call_answer", { type: answer.type, sdp: answer.sdp });
+      await sendSignal("call_answer", { type: tunedAnswer.type, sdp: tunedAnswer.sdp });
     } catch (error) {
       showToast(error.message || "Could not answer call");
       stopCall({ result: "Failed", signal: true, signalType: "call_end", updateStatus: true, reason: "failed" });
@@ -320,7 +322,13 @@ const WebCalls = (() => {
 
   function setupPeer() {
     if (!current || current.pc) return;
-    const pc = new RTCPeerConnection({ iceServers: iceServers() });
+    const pc = new RTCPeerConnection({
+      iceServers: iceServers(),
+      iceCandidatePoolSize: 10,
+      sdpSemantics: "unified-plan",
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require",
+    });
     current.pc = pc;
     const audioTracks = current.localStream?.getAudioTracks?.() || [];
     audioTracks.forEach((track) => pc.addTrack(track, current.localStream));
@@ -350,6 +358,49 @@ const WebCalls = (() => {
     };
     pc.onconnectionstatechange = () => handlePeerState(pc.connectionState);
     pc.oniceconnectionstatechange = () => handlePeerState(pc.iceConnectionState);
+  }
+
+  function tuneAudioDescription(description) {
+    if (!description?.sdp) return description;
+    return {
+      type: description.type,
+      sdp: preferOpus(description.sdp),
+    };
+  }
+
+  function preferOpus(sdp) {
+    const lines = String(sdp || "").split(/\r\n/);
+    const audioLineIndex = lines.findIndex((line) => line.startsWith("m=audio "));
+    if (audioLineIndex < 0) return sdp;
+    const opusLineIndex = lines.findIndex((line) => /^a=rtpmap:\d+\s+opus\/48000/i.test(line));
+    if (opusLineIndex < 0) return sdp;
+    const match = lines[opusLineIndex].match(/^a=rtpmap:(\d+)/i);
+    const opusPayload = match?.[1] || "";
+    if (!opusPayload) return sdp;
+
+    const audioParts = lines[audioLineIndex].split(" ");
+    if (audioParts.length > 3) {
+      const header = audioParts.slice(0, 3);
+      const payloads = audioParts.slice(3).filter((payload) => payload !== opusPayload);
+      lines[audioLineIndex] = [...header, opusPayload, ...payloads].join(" ");
+    }
+
+    const fmtpPrefix = `a=fmtp:${opusPayload} `;
+    const fmtpIndex = lines.findIndex((line) => line.startsWith(fmtpPrefix));
+    const requiredParams = ["minptime=10", "useinbandfec=1"];
+    if (fmtpIndex >= 0) {
+      let fmtpLine = lines[fmtpIndex];
+      for (const param of requiredParams) {
+        const key = param.split("=")[0];
+        if (!new RegExp(`(?:^|;)\\s*${key}=`).test(fmtpLine.replace(fmtpPrefix, ""))) {
+          fmtpLine += `;${param}`;
+        }
+      }
+      lines[fmtpIndex] = fmtpLine;
+    } else {
+      lines.splice(opusLineIndex + 1, 0, `${fmtpPrefix}${requiredParams.join(";")}`);
+    }
+    return lines.join("\r\n");
   }
 
   function handlePeerState(state) {

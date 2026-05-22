@@ -18,6 +18,7 @@ const WebCalls = (() => {
   let toneTimer = null;
   let toneNodes = [];
   let audioUnlocked = false;
+  let remoteAudioRetryTimer = null;
 
   function supported() {
     return !!(navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection);
@@ -91,7 +92,7 @@ const WebCalls = (() => {
 
     try {
       current.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: audioConstraints(),
         video: false,
       });
       const call = await Api.startVoiceCall(Auth.getToken(), chatId);
@@ -247,7 +248,7 @@ const WebCalls = (() => {
     enableAudio({ silent: true });
     try {
       current.localStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: audioConstraints(),
         video: false,
       });
       setupPeer();
@@ -354,6 +355,8 @@ const WebCalls = (() => {
         }
       }
       event.track.enabled = true;
+      event.track.onunmute = () => attachRemoteAudio({ force: true });
+      event.track.onended = () => scheduleRemoteAudioRetry();
       attachRemoteAudio();
     };
     pc.onconnectionstatechange = () => handlePeerState(pc.connectionState);
@@ -419,30 +422,58 @@ const WebCalls = (() => {
       audio.autoplay = true;
       audio.playsInline = true;
       audio.controls = false;
+      audio.setAttribute("autoplay", "autoplay");
+      audio.setAttribute("playsinline", "playsinline");
+      audio.setAttribute("webkit-playsinline", "webkit-playsinline");
       document.body.appendChild(audio);
     }
     audio.autoplay = true;
     audio.playsInline = true;
+    audio.setAttribute("autoplay", "autoplay");
+    audio.setAttribute("playsinline", "playsinline");
+    audio.setAttribute("webkit-playsinline", "webkit-playsinline");
     audio.muted = current ? !current.speakerOn : false;
     audio.volume = current?.speakerOn === false ? 0 : 1;
-    if (!audio.srcObject) audio.srcObject = new MediaStream();
     return audio;
   }
 
-  function attachRemoteAudio() {
+  function hasLiveAudioTrack(stream) {
+    return !!stream?.getAudioTracks?.().some((track) => track.readyState === "live" && track.enabled !== false);
+  }
+
+  function attachRemoteAudio(options = {}) {
     if (!current?.remoteStream) return;
     const audio = prepareRemoteAudio();
-    audio.srcObject = current.remoteStream;
+    if (options.force || audio.srcObject !== current.remoteStream) {
+      audio.pause?.();
+      audio.srcObject = null;
+      audio.srcObject = current.remoteStream;
+      audio.load?.();
+    }
+    audio.muted = !current.speakerOn;
+    audio.volume = current.speakerOn ? 1 : 0;
+    if (!hasLiveAudioTrack(current.remoteStream)) {
+      scheduleRemoteAudioRetry();
+      return;
+    }
     audio.play?.()
       .then(() => {
         if (!current) return;
         current.audioBlocked = false;
+        audioUnlocked = true;
       })
       .catch(() => {
         if (!current) return;
         current.audioBlocked = true;
+        scheduleRemoteAudioRetry();
         render();
       });
+  }
+
+  function scheduleRemoteAudioRetry() {
+    clearTimeout(remoteAudioRetryTimer);
+    if (!current?.remoteStream) return;
+    remoteAudioRetryTimer = setTimeout(() => attachRemoteAudio({ force: false }), 700);
   }
 
   async function markConnected() {
@@ -505,6 +536,8 @@ const WebCalls = (() => {
     const call = current;
     if (!call) return;
     current = null;
+    clearTimeout(remoteAudioRetryTimer);
+    remoteAudioRetryTimer = null;
     stopTone();
     stopPolling();
     stopTimeout();
@@ -626,6 +659,15 @@ const WebCalls = (() => {
       try { node.stop?.(); } catch {}
     });
     toneNodes = [];
+  }
+
+  function audioConstraints() {
+    return {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      channelCount: 1,
+    };
   }
 
   function render() {

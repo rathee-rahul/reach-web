@@ -422,6 +422,29 @@ button, a, [onclick] { touch-action: manipulation; }
   justify-content: center;
   cursor: pointer;
 }
+.support-sheet {
+  padding: 20px;
+}
+.support-subtitle {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 2px 0 12px;
+}
+.support-sheet textarea {
+  min-height: 150px;
+  resize: vertical;
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 14px;
+  line-height: 1.4;
+}
+.support-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 10px 0 4px;
+}
 
 /* â”€â”€ Chat retention note â”€â”€ */
 .chat-retention-note {

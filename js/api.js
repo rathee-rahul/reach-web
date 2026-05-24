@@ -205,6 +205,7 @@ const Api = {
     return callFunction("edit-message", { session_token: sessionToken, message_id: messageId, content });
   },
   deleteMessage: (sessionToken, messageId, scope = "me") => callFunction("delete-message", { session_token: sessionToken, message_id: messageId, scope }),
+  sendSupportIssue: (sessionToken, content) => callFunction("send-support-issue", { session_token: sessionToken, content }),
 
   listGroups: (sessionToken) => callFunction("list-groups", { session_token: sessionToken }),
   listGroupMessages: (sessionToken, groupId) => callFunction("list-group-messages", { session_token: sessionToken, group_id: groupId }),

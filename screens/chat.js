@@ -622,10 +622,29 @@ async function deleteMsg(messageId, scope, chatId) {
 function showChatMenu(chatId, contactVid) {
   showActionSheet("Chat options", [
     ["Copy REACH ID", () => copyContactVid(contactVid)],
-    ["Report user", () => Api.reportUser(Auth.getToken(), contactVid, "reported via web").then(() => showToast("Reported")).catch((error) => showToast(error.message))],
+    ["Report user", () => showReportUserSheet(contactVid)],
     ["Block user", () => showBlockSheet(contactVid)],
     ["Full chat tools", () => showDownloadModal("Full Chat Tools", "App")],
   ]);
+}
+
+function showReportUserSheet(contactVid) {
+  const vid = Utils.normalizeVid(contactVid);
+  const prefix = vid ? `Report user ${vid}:\n` : "Report user:\n";
+  if (typeof showSupportTextSheet === "function") {
+    showSupportTextSheet(
+      "Report User",
+      "Send this report directly to REACH customer support.",
+      prefix,
+      "Send Report",
+    );
+    return;
+  }
+  const reason = window.prompt("Report user", prefix);
+  if (!reason || !reason.trim()) return;
+  Api.sendSupportIssue(Auth.getToken(), reason.trim())
+    .then(() => showToast("Sent to customer support"))
+    .catch((error) => showToast(error.message || "Could not send report"));
 }
 
 function showBlockSheet(contactVid) {

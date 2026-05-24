@@ -31,6 +31,7 @@ Screen.profile = async function() {
         <div class="profile-section">
           ${profileRow("mail", "Add Recovery Mail", recoveryText, "showAddRecoveryMailDialog()")}
           ${profileRow("shield", "Privacy & Security", "Read receipts, last seen and direct messages", "go('settings')")}
+          ${profileRow("chat", "Report Issue", "Customer support", "showSupportIssueSheet()")}
           ${profileRow("block", "Blocked Users", "Block and unblock REACH IDs", "go('blocked')")}
           ${profileRow("lock", "App Lock", "On", "showAndroidOnlySettingsToast()", "Locked")}
           <div class="row" onclick="doLogout()"><div class="row-info"><div class="row-name" style="color:var(--red);">Sign Out</div></div></div>
@@ -168,6 +169,57 @@ function showAddRecoveryMailDialog() {
     showToast("Verification code sent");
     setTimeout(() => showRecoveryCodeSheet(email), 0);
   }, { inputMode: "email", confirmLabel: "Send Code" });
+}
+
+function showSupportIssueSheet(defaultMessage = "") {
+  showSupportTextSheet(
+    "Report Issue",
+    "Send a bug report or support request directly to REACH customer support.",
+    defaultMessage,
+    "Send",
+  );
+}
+
+function showSupportTextSheet(title, subtitle, defaultMessage = "", confirmLabel = "Send") {
+  document.getElementById("support-sheet")?.remove();
+  const overlay = document.createElement("div");
+  overlay.id = "support-sheet";
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="action-sheet support-sheet">
+      <div class="action-title">${Utils.escape(title)}</div>
+      <div class="support-subtitle">${Utils.escape(subtitle)}</div>
+      <textarea id="support-message" maxlength="2000" placeholder="Type your message...">${Utils.escape(defaultMessage || "")}</textarea>
+      <div class="support-hint">Your message will open or reuse a support chat with REACH.</div>
+      <button class="confirm" data-send="1">${Utils.escape(confirmLabel)}</button>
+      <button class="cancel" data-cancel="1">Cancel</button>
+    </div>`;
+  overlay.addEventListener("click", async (event) => {
+    if (event.target === overlay || event.target.dataset.cancel) {
+      overlay.remove();
+      return;
+    }
+    if (event.target.dataset.send) {
+      const button = event.target;
+      const field = document.getElementById("support-message");
+      const message = field ? field.value.trim() : "";
+      if (!message) {
+        showToast("Type your issue first");
+        return;
+      }
+      button.disabled = true;
+      try {
+        await Api.sendSupportIssue(Auth.getToken(), message);
+        overlay.remove();
+        showToast("Sent to customer support");
+      } catch (error) {
+        button.disabled = false;
+        showToast(error.message || "Could not send report");
+      }
+    }
+  });
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => document.getElementById("support-message")?.focus());
 }
 
 function showRecoveryCodeSheet(email) {

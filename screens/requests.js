@@ -1,4 +1,6 @@
 Screen.requests = async function() {
+  const routeToken = `requests-${Date.now()}-${Math.random()}`;
+  window._requestsRouteToken = routeToken;
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header"><span class="header-title">Requests</span></div>
@@ -7,8 +9,10 @@ Screen.requests = async function() {
     </div>`;
   try {
     const data = await Api.listRequests(Auth.getToken());
+    if (window._requestsRouteToken !== routeToken || location.hash.slice(1).split("/")[0] !== "requests") return;
     const requests = data.requests || data || [];
     const el = document.getElementById("req-list");
+    if (!el) return;
     if (!requests.length) {
       el.innerHTML = `
         <div class="empty-card">
@@ -57,7 +61,7 @@ async function rejectReq(id) {
   try {
     await Api.respondRequest(Auth.getToken(), id, false);
     showToast("Request declined");
-    Screen.requests();
+    if (location.hash.slice(1).split("/")[0] === "requests") Screen.requests();
   } catch (error) {
     showToast(error.message);
   }

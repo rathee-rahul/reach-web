@@ -34,12 +34,18 @@ function renderContactList(contacts) {
     const chatId = contact.chat_id || contact.chatId || "";
     const avatar = contact.avatar_id || contact.avatarId || 1;
     const photo = contact.profile_photo || contact.profilePhoto || "";
+    const chatUrl = `chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}`;
+    const callPayload = `{ chatId: ${Utils.jsString(chatId)}, name: ${Utils.jsString(name)}, vid: ${Utils.jsString(vid)}, avatar: ${Number(avatar) || 1}, photo: ${Utils.jsString(photo)} }`;
     return `
-      <div class="row" onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')">
+      <div class="row contact-action-row" onclick="go('${chatUrl}')">
         ${Avatar(name, avatar, 44, photo)}
         <div class="row-info">
           <div class="row-name">${Utils.escape(name)}</div>
           <div class="row-sub">ID ${Utils.escape(vid)}</div>
+        </div>
+        <div class="row-actions">
+          <button class="plain-icon-btn action-circle" onclick="event.stopPropagation();go('${chatUrl}')" title="Message">${Icon("chat", 20)}</button>
+          <button class="plain-icon-btn action-circle" onclick="event.stopPropagation();WebCalls.startOutgoing(${callPayload})" title="Call">${Icon("call", 20)}</button>
         </div>
       </div>`;
   }).join("");

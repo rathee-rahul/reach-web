@@ -232,6 +232,28 @@ button, a, [onclick] { touch-action: manipulation; }
 .row-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .row-time { font-size: 11px; color: var(--muted); }
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.action-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+}
+.action-circle:active {
+  background: #D8EEE7;
+}
+.call-log-row {
+  cursor: default;
+}
+.call-log-row:active {
+  background: var(--surface);
+}
 .vid-chip {
   background: var(--green-soft);
   border: none;
@@ -293,6 +315,41 @@ button, a, [onclick] { touch-action: manipulation; }
   color: var(--muted);
 }
 .bubble.out .bubble-meta { color: rgba(255,255,255,0.65); }
+.bubble-text {
+  white-space: pre-wrap;
+}
+.reply-quote {
+  border-left: 3px solid var(--green);
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+  overflow: hidden;
+}
+.reply-quote.out {
+  background: rgba(255,255,255,.14);
+  border-left-color: rgba(255,255,255,.78);
+}
+.reply-quote.in {
+  background: var(--green-soft);
+}
+.reply-quote b {
+  font-size: 11px;
+  line-height: 1.2;
+  color: inherit;
+}
+.reply-quote span {
+  font-size: 12px;
+  line-height: 1.25;
+  color: inherit;
+  opacity: .78;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* â”€â”€ Tick marks â”€â”€ */
 .bubble-ticks {
@@ -319,6 +376,51 @@ button, a, [onclick] { touch-action: manipulation; }
   font-style: italic;
   display: none;
   flex-shrink: 0;
+}
+.reply-preview-bar {
+  background: var(--surface);
+  border-top: 0.5px solid var(--line);
+  padding: 8px 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.reply-preview-bar > div {
+  flex: 1;
+  min-width: 0;
+  border-left: 3px solid var(--green);
+  background: var(--green-soft);
+  border-radius: 8px;
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reply-preview-bar b {
+  color: var(--green);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.reply-preview-bar span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reply-preview-bar button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
 /* â”€â”€ Chat retention note â”€â”€ */

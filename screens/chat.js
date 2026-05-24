@@ -6,8 +6,10 @@ let chatListCacheRefreshTimer = null;
 let keyboardScrollTimer = null;
 let currentChatMessages = [];
 let currentChatId = "";
+let pendingReply = null;
 const recentSentMessages = [];
 const SENT_MARKERS_KEY = "reach_sent_message_markers";
+const REPLY_MARKER = "[[REACH_REPLY_V1]]";
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatPresenceTimer);
@@ -26,6 +28,7 @@ window.addEventListener("hashchange", () => {
 
 Screen.chat = async function(chatId, contactName, contactVid) {
   currentChatId = chatId;
+  pendingReply = null;
   const chatArg = Utils.jsString(chatId);
   const contactVidArg = Utils.jsString(contactVid || "");
   const contactIdLabel = contactVid ? `ID ${Utils.escape(contactVid)}` : "ID unavailable";
@@ -65,6 +68,7 @@ Screen.chat = async function(chatId, contactName, contactVid) {
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
       </div>
       <div id="typing-label">typing...</div>
+      <div id="reply-preview"></div>
       <div class="chat-input-bar">
         <input type="text" id="msg-input" maxlength="4000" placeholder="Message..." oninput="handleTyping(${chatArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg(${chatArg});}">
         <button class="send-btn" onclick="sendMsg(${chatArg})" title="Send">${Icon("send", 18)}</button>
@@ -199,10 +203,17 @@ function renderMessages(messages, myVid) {
     }
     const isOut = Utils.isOwnMessage(message, myVid);
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
+    const reply = parseReplyPayload(message.content);
+    const body = displayMessageContent(message.content);
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
         <div class="bubble ${isOut ? "out" : "in"}" onclick="showMsgMenu(${Utils.jsString(message.id)})">
-          <div>${Utils.escape(message.content)}</div>
+          ${reply.hasReply ? `
+            <div class="reply-quote ${isOut ? "out" : "in"}">
+              <b>${Utils.escape(reply.name || "Message")}</b>
+              <span>${Utils.escape(reply.preview || "Message")}</span>
+            </div>` : ""}
+          <div class="bubble-text">${Utils.escape(body)}</div>
           <div class="bubble-meta">${meta}</div>
         </div>
       </div>`;
@@ -275,8 +286,11 @@ async function sendMsg(chatId) {
   const input = document.getElementById("msg-input");
   const text = input.value.trim();
   if (!text) return;
-  if (text.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
+  const payload = outgoingMessagePayload(text);
+  if (payload.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
   input.value = "";
+  pendingReply = null;
+  renderReplyPreview();
   Api.setTyping(Auth.getToken(), chatId, false).catch(() => {});
   const tempId = `temp-${Date.now()}`;
   const tempMessage = Utils.normalizeMessage({
@@ -285,7 +299,7 @@ async function sendMsg(chatId) {
     senderVid: Auth.getVid(),
     isMine: true,
     contentType: "text",
-    content: text,
+    content: payload,
     sentAt: new Date().toISOString(),
     localOnly: true,
   });
@@ -295,9 +309,9 @@ async function sendMsg(chatId) {
   scrollToBottom();
   queueChatListCacheRefresh(100);
   try {
-    const data = await Api.sendMessage(Auth.getToken(), chatId, text);
+    const data = await Api.sendMessage(Auth.getToken(), chatId, payload);
     const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
-    const outgoingMessage = { ...savedMessage, content: savedMessage.content || text, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true };
+    const outgoingMessage = { ...savedMessage, content: savedMessage.content || payload, sentAt: savedMessage.sentAt || tempMessage.sentAt, isMine: true };
     if (outgoingMessage.senderVid) Auth.reconcileVid(outgoingMessage.senderVid);
     rememberSentMessage(outgoingMessage);
     currentChatMessages = currentChatMessages.filter((message) => message.id !== tempId);
@@ -447,17 +461,100 @@ function showMsgMenu(messageId) {
   const mine = Utils.isOwnMessage(message, Auth.getVid());
   const options = mine
     ? [
-        ["Copy", () => copyMessage(message.content)],
+        ["Reply", () => setReplyFromMessage(message, mine)],
+        ["Copy", () => copyMessage(displayMessageContent(message.content))],
         ["Info", () => showMessageInfo(message)],
-        ["Edit", () => editMsg(message.id, message.content, currentChatId)],
+        ["Edit", () => editMsg(message.id, displayMessageContent(message.content), currentChatId)],
         ["Delete for Everyone", () => deleteMsg(message.id, "everyone", currentChatId)],
         ["Delete for Me", () => deleteMsg(message.id, "me", currentChatId)],
       ]
     : [
-        ["Copy", () => copyMessage(message.content)],
+        ["Reply", () => setReplyFromMessage(message, mine)],
+        ["Copy", () => copyMessage(displayMessageContent(message.content))],
         ["Delete for Me", () => deleteMsg(message.id, "me", currentChatId)],
       ];
   showActionSheet("Message options", options);
+}
+
+function setReplyFromMessage(message, mine) {
+  pendingReply = {
+    name: safeReplyPart(mine ? (Auth.getName() || "You") : (message.senderName || "Message")),
+    preview: safeReplyPart(displayMessageContent(message.content)),
+  };
+  renderReplyPreview();
+  document.getElementById("msg-input")?.focus();
+}
+
+function renderReplyPreview() {
+  const el = document.getElementById("reply-preview");
+  if (!el) return;
+  if (!pendingReply) {
+    el.innerHTML = "";
+    el.className = "";
+    return;
+  }
+  el.className = "reply-preview-bar";
+  el.innerHTML = `
+    <div>
+      <b>${Utils.escape(pendingReply.name || "Message")}</b>
+      <span>${Utils.escape(pendingReply.preview || "Message")}</span>
+    </div>
+    <button onclick="clearReply()" title="Cancel reply">${Icon("back", 16)}</button>`;
+}
+
+function clearReply() {
+  pendingReply = null;
+  renderReplyPreview();
+}
+
+function outgoingMessagePayload(text) {
+  const clean = String(text || "").trim();
+  if (!pendingReply) return clean;
+  return `${REPLY_MARKER}${encodeReplyPart(pendingReply.name)}|${encodeReplyPart(pendingReply.preview)}\n${clean}`;
+}
+
+function parseReplyPayload(value) {
+  const raw = String(value || "");
+  if (!raw.startsWith(REPLY_MARKER)) return { hasReply: false, name: "", preview: "", body: raw };
+  const line = raw.indexOf("\n", REPLY_MARKER.length);
+  if (line < 0) return { hasReply: false, name: "", preview: "", body: raw };
+  const header = raw.slice(REPLY_MARKER.length, line);
+  const split = header.indexOf("|");
+  if (split < 0) return { hasReply: false, name: "", preview: "", body: raw.slice(line + 1) };
+  return {
+    hasReply: true,
+    name: decodeReplyPart(header.slice(0, split)),
+    preview: decodeReplyPart(header.slice(split + 1)),
+    body: raw.slice(line + 1),
+  };
+}
+
+function displayMessageContent(value) {
+  return parseReplyPayload(value).body;
+}
+
+function safeReplyPart(value) {
+  let clean = String(value || "").replace(/[\r\n]+/g, " ").trim();
+  if (clean.length > 90) clean = `${clean.slice(0, 90).trim()}...`;
+  return clean || "Message";
+}
+
+function encodeReplyPart(value) {
+  try {
+    const encoded = btoa(unescape(encodeURIComponent(safeReplyPart(value))));
+    return encoded.replace(/\+/g, "-").replace(/\//g, "_");
+  } catch {
+    return "";
+  }
+}
+
+function decodeReplyPart(value) {
+  try {
+    const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+    return decodeURIComponent(escape(atob(normalized)));
+  } catch {
+    return "";
+  }
 }
 
 function showActionSheet(title, options) {

@@ -40,7 +40,7 @@ function renderWebCallLogs(rows) {
     const sub = callLogSubline(direction, status, duration, row.end_reason || row.endReason || "");
     return `
       <div class="row call-log-row">
-        <div onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')" style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0;flex:1;">
           ${Avatar(name, 1, 48, "")}
           <div style="min-width:0;flex:1;">
             <div class="row-name">${Utils.escape(name)}</div>
@@ -49,7 +49,7 @@ function renderWebCallLogs(rows) {
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="row-time">${Utils.chatRowTime(started)}</span>
-          <button class="plain-icon-btn" onclick="WebCalls.startOutgoing({ chatId: ${Utils.jsString(chatId)}, name: ${Utils.jsString(name)}, vid: ${Utils.jsString(vid)}, avatar: 1, photo: '' })" title="Call">${Icon("call", 20)}</button>
+          <button class="plain-icon-btn action-circle" onclick="WebCalls.startOutgoing({ chatId: ${Utils.jsString(chatId)}, name: ${Utils.jsString(name)}, vid: ${Utils.jsString(vid)}, avatar: 1, photo: '' })" title="Call">${Icon("call", 20)}</button>
         </div>
       </div>`;
   }).join("");

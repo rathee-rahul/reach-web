@@ -133,11 +133,18 @@ function renderGroupMessages(messages) {
     }
     const isOut = Utils.isOwnMessage(message, myVid);
     const sender = message.senderName || currentGroupNameMap[Utils.normalizeVid(message.senderVid)] || message.senderVid;
+    const reply = typeof parseReplyPayload === "function" ? parseReplyPayload(message.content) : { hasReply: false };
+    const body = typeof displayMessageContent === "function" ? displayMessageContent(message.content) : message.content;
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}">
         <div class="bubble ${isOut ? "out" : "in"}">
           ${!isOut ? `<div class="group-sender">${Utils.escape(sender)}</div>` : ""}
-          <div>${Utils.escape(message.content)}</div>
+          ${reply.hasReply ? `
+            <div class="reply-quote ${isOut ? "out" : "in"}">
+              <b>${Utils.escape(reply.name || "Message")}</b>
+              <span>${Utils.escape(reply.preview || "Message")}</span>
+            </div>` : ""}
+          <div class="bubble-text">${Utils.escape(body)}</div>
           <div class="bubble-meta">${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}</div>
         </div>
       </div>`;

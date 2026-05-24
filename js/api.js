@@ -1,6 +1,7 @@
-const SUPABASE_URL = "https://eqocgylkivhkyqeqggff.supabase.co";
-const SUPABASE_ANON_KEY = "sb_publishable_Zl8gfZ21GaarCuM840W-Iw_hYxIREtV";
-const APK_DRIVE_URL = "";
+const REACH_CONFIG = window.REACH_CONFIG || {};
+const SUPABASE_URL = REACH_CONFIG.SUPABASE_URL || "";
+const SUPABASE_ANON_KEY = REACH_CONFIG.SUPABASE_ANON_KEY || "";
+const APK_DRIVE_URL = REACH_CONFIG.APK_DRIVE_URL || "";
 const MAX_TEXT_MESSAGE_LENGTH = 4000;
 const LOCAL_PREVIEW_HOSTS = ["127.0.0.1", "localhost"];
 const PREVIEW_MODE = LOCAL_PREVIEW_HOSTS.includes(window.location.hostname)
@@ -34,13 +35,15 @@ const PreviewData = {
 
 async function callFunction(name, body) {
   if (PREVIEW_MODE) return previewFunction(name, body || {});
+  requireSupabaseConfig();
+  const headers = {
+    "Content-Type": "application/json",
+    "apikey": SUPABASE_ANON_KEY,
+  };
+  if (shouldSendBearerKey()) headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
   const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": SUPABASE_ANON_KEY,
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-    },
+    headers,
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
@@ -50,11 +53,12 @@ async function callFunction(name, body) {
 
 async function callRpc(name, body, options = {}) {
   if (PREVIEW_MODE) return previewRpc(name, body || {});
+  requireSupabaseConfig();
   const headers = {
     "Content-Type": "application/json",
     "apikey": SUPABASE_ANON_KEY,
-    "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
   };
+  if (shouldSendBearerKey()) headers.Authorization = `Bearer ${SUPABASE_ANON_KEY}`;
   if (options.minimal) headers.Prefer = "return=minimal";
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
@@ -72,6 +76,16 @@ async function callRpc(name, body, options = {}) {
   }
   if (!res.ok) throw new Error(data.error || data.message || data.hint || "Request failed");
   return data;
+}
+
+function requireSupabaseConfig() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    throw new Error("REACH web configuration is missing");
+  }
+}
+
+function shouldSendBearerKey() {
+  return String(SUPABASE_ANON_KEY || "").trim().startsWith("eyJ");
 }
 
 async function previewFunction(name, body) {

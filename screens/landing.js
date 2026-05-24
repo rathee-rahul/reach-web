@@ -1,3 +1,5 @@
+let pendingGoogleSignup = null;
+
 Screen.landing = function() {
   document.getElementById("app").innerHTML = `
     <div class="screen auth-screen">
@@ -7,12 +9,13 @@ Screen.landing = function() {
         <div class="reach-subtitle">Don't share your number.<br>Share your REACH ID.</div>
         <div class="auth-actions">
           <button class="reach-primary pill" onclick="go('create')">Create Account</button>
-          <button class="google-btn" onclick="startGoogleSignup()">${GoogleMark()}<span>Continue with Google</span></button>
+          <div id="google-signup-landing" class="google-render-slot"></div>
           <button class="reach-secondary pill" onclick="go('login')">Sign In</button>
         </div>
         <div class="auth-note">You can return with your REACH ID and password after reinstalling.</div>
       </div>
     </div>`;
+  mountGoogleButtons();
 };
 
 Screen.createAccount = function() {
@@ -23,7 +26,7 @@ Screen.createAccount = function() {
           ${authBrandRow("landing")}
           <h1 class="auth-heading">Create your <span>REACH ID</span></h1>
           <p class="auth-copy">Your ID is how people find you - no phone number needed.</p>
-          <button class="google-btn compact" onclick="startGoogleSignup()">${GoogleMark()}<span>Continue with Google</span></button>
+          <div id="google-signup-create" class="google-render-slot compact"></div>
           <div class="or-divider"><span></span><em>or fill manually</em><span></span></div>
 
           <label class="field-label">Full Name</label>
@@ -66,6 +69,8 @@ Screen.createAccount = function() {
         </div>
       </div>
     </div>`;
+  mountGoogleButtons();
+  applyPendingGoogleSignup();
 };
 
 Screen.login = function() {
@@ -182,8 +187,79 @@ function togglePasswordVisible(inputId, button) {
   try { input.setSelectionRange(end, end); } catch {}
 }
 
-function startGoogleSignup() {
-  showToast("Google sign-in is coming soon to REACH Web.");
+function mountGoogleButtons() {
+  if (PREVIEW_MODE || !GOOGLE_WEB_CLIENT_ID) {
+    document.querySelectorAll(".google-render-slot").forEach((slot) => {
+      const message = PREVIEW_MODE ? "Google sign-in is disabled in preview mode" : "Google sign-in is not configured";
+      slot.innerHTML = `<button class="google-btn" onclick="showToast('${message}')">${GoogleMark()}<span>Continue with Google</span></button>`;
+    });
+    return;
+  }
+  if (!window.google?.accounts?.id) {
+    setTimeout(mountGoogleButtons, 250);
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: GOOGLE_WEB_CLIENT_ID,
+    callback: handleGoogleSignupCredential,
+  });
+  document.querySelectorAll(".google-render-slot").forEach((slot) => {
+    slot.innerHTML = "";
+    google.accounts.id.renderButton(slot, {
+      theme: "outline",
+      size: "large",
+      type: "standard",
+      shape: "pill",
+      text: "continue_with",
+      width: Math.max(260, Math.min(390, slot.clientWidth || 320)),
+    });
+  });
+}
+
+function handleGoogleSignupCredential(response) {
+  const token = response?.credential || "";
+  const profile = parseGoogleCredential(token);
+  if (!token || !profile.email) {
+    showToast("Google did not return verified account details");
+    return;
+  }
+  pendingGoogleSignup = {
+    token,
+    email: profile.email,
+    name: profile.name || profile.email.split("@")[0],
+  };
+  showToast("Google connected. Finish DOB, gender, and password.");
+  window.location.hash = "create";
+  Router.handle();
+}
+
+function parseGoogleCredential(token) {
+  try {
+    const payload = token.split(".")[1] || "";
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "=")))
+      .map((char) => "%" + char.charCodeAt(0).toString(16).padStart(2, "0"))
+      .join(""));
+    const data = JSON.parse(json);
+    if (String(data.email_verified) !== "true") return {};
+    return {
+      email: String(data.email || "").trim().toLowerCase(),
+      name: String(data.name || "").trim(),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function applyPendingGoogleSignup() {
+  if (!pendingGoogleSignup) return;
+  const name = document.getElementById("create-name");
+  const email = document.getElementById("create-email");
+  if (name && !name.value.trim()) name.value = pendingGoogleSignup.name;
+  if (email) {
+    email.value = pendingGoogleSignup.email;
+    email.readOnly = true;
+  }
 }
 
 async function doLogin() {
@@ -211,6 +287,7 @@ async function doCreateAccount() {
   const name = document.getElementById("create-name").value.trim();
   const password = document.getElementById("create-password").value;
   const email = document.getElementById("create-email").value.trim();
+  const googleToken = pendingGoogleSignup?.token || "";
   const gender = document.getElementById("create-gender").value;
   const dob = selectedDob();
   const btn = document.getElementById("create-btn");
@@ -221,8 +298,9 @@ async function doCreateAccount() {
   btn.disabled = true;
   btn.textContent = "Creating...";
   try {
-    const data = await Api.generateVid(name, password, 1, email, "", dob, gender);
+    const data = await Api.generateVid(name, password, 1, email, googleToken, dob, gender);
     Auth.saveAccount(data.account || data);
+    pendingGoogleSignup = null;
     showToast("REACH ID created");
     window.location.hash = "vid-ready";
     Router.handle();

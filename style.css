@@ -679,6 +679,19 @@ button, a, [onclick] { touch-action: manipulation; }
   min-height: 54px;
   border-radius: 12px;
 }
+.google-render-slot {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.google-render-slot > div {
+  width: 100% !important;
+}
+.google-render-slot iframe {
+  margin: 0 auto !important;
+}
 @media (max-height: 720px) {
   .auth-landing { padding-top: 84px; }
   .auth-actions { margin-top: 52px; }

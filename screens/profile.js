@@ -219,7 +219,13 @@ function showSupportTextSheet(title, subtitle, defaultMessage = "", confirmLabel
     }
   });
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => document.getElementById("support-message")?.focus());
+  requestAnimationFrame(() => {
+    const field = document.getElementById("support-message");
+    if (!field) return;
+    field.focus();
+    const end = field.value.length;
+    field.setSelectionRange(end, end);
+  });
 }
 
 function showRecoveryCodeSheet(email) {

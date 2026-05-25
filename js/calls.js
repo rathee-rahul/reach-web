@@ -148,7 +148,7 @@ const WebCalls = (() => {
     current.pushSent = true;
     try {
       const result = await Api.sendCallPush(Auth.getToken(), current.chatId, current.callId, Auth.getName(), Auth.getVid());
-      if (Number(result?.sent ?? 1) === 0) showToast("Receiver notification token is not ready");
+      if (Number(result?.sent ?? 1) === 0) showToast("No background alert is registered. Web calls ring while REACH is open.");
     } catch (error) {
       showToast(`Call notification not delivered: ${error.message || "try again"}`);
     }
@@ -263,7 +263,7 @@ const WebCalls = (() => {
       await current.pc.setLocalDescription(tunedAnswer);
       current.status = "Connecting...";
       render();
-      await Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "connected", "");
+      await Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "accepted", "");
       await sendSignal("call_answer", { type: tunedAnswer.type, sdp: tunedAnswer.sdp });
     } catch (error) {
       showToast(error.message || "Could not answer call");
@@ -296,13 +296,13 @@ const WebCalls = (() => {
   }
 
   async function handleRemoteIce(payload) {
-    if (!current?.pc || !payload?.candidate) return;
+    if (!current || !payload?.candidate) return;
     const candidate = new RTCIceCandidate({
       candidate: payload.candidate,
       sdpMid: payload.sdp_mid || payload.sdpMid || "",
       sdpMLineIndex: payload.sdp_mline_index ?? payload.sdpMLineIndex ?? 0,
     });
-    if (!current.remoteDescriptionSet) {
+    if (!current.pc || !current.remoteDescriptionSet) {
       current.pendingIce.push(candidate);
       return;
     }
@@ -498,6 +498,9 @@ const WebCalls = (() => {
     audio.muted = current ? !current.speakerOn : false;
     audio.volume = current?.speakerOn === false ? 0 : 1;
     ensureToneContext();
+    if (current && (current.status === "Incoming voice call" || current.status === "Ringing...")) {
+      playToneBurst();
+    }
     return audio.play?.()
       .then(() => {
         audioUnlocked = true;
@@ -690,7 +693,7 @@ const WebCalls = (() => {
         <div class="call-name">${Utils.escape(current.otherName || "REACH User")}</div>
         <div class="call-vid">${current.otherVid ? `ID ${Utils.escape(current.otherVid)}` : ""}</div>
         <div class="call-status">${Utils.escape(current.status || "")}</div>
-        ${current.audioBlocked ? `<button class="call-tool active" onclick="WebCalls.enableAudio()">Enable audio</button>` : ""}
+        ${current.audioBlocked ? `<button class="call-tool active" onclick="WebCalls.enableAudio()">Enable call sound</button>` : ""}
         ${incoming ? `
           <div class="call-actions">
             <button class="call-btn danger" onclick="WebCalls.declineIncoming()">${Icon("back", 20)}<span>Decline</span></button>

@@ -358,7 +358,7 @@ const WebCalls = (() => {
         }
       }
       event.track.enabled = true;
-      event.track.onunmute = () => attachRemoteAudio({ force: true });
+      event.track.onunmute = () => attachRemoteAudio();
       event.track.onended = () => scheduleRemoteAudioRetry();
       attachRemoteAudio();
     };
@@ -444,14 +444,11 @@ const WebCalls = (() => {
     return !!stream?.getAudioTracks?.().some((track) => track.readyState === "live" && track.enabled !== false);
   }
 
-  function attachRemoteAudio(options = {}) {
+  function attachRemoteAudio() {
     if (!current?.remoteStream) return;
     const audio = prepareRemoteAudio();
-    if (options.force || audio.srcObject !== current.remoteStream) {
-      audio.pause?.();
-      audio.srcObject = null;
+    if (audio.srcObject !== current.remoteStream) {
       audio.srcObject = current.remoteStream;
-      audio.load?.();
     }
     audio.muted = false;
     audio.volume = 1;
@@ -476,7 +473,7 @@ const WebCalls = (() => {
   function scheduleRemoteAudioRetry() {
     clearTimeout(remoteAudioRetryTimer);
     if (!current?.remoteStream) return;
-    remoteAudioRetryTimer = setTimeout(() => attachRemoteAudio({ force: false }), 700);
+    remoteAudioRetryTimer = setTimeout(() => attachRemoteAudio(), 700);
   }
 
   async function markConnected() {

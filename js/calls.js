@@ -135,7 +135,6 @@ const WebCalls = (() => {
       pendingIce: [],
       remoteDescriptionSet: false,
       muted: false,
-      speakerOn: true,
       pushSent: false,
       connectedAt: 0,
       audioBlocked: false,
@@ -432,8 +431,8 @@ const WebCalls = (() => {
     audio.setAttribute("autoplay", "autoplay");
     audio.setAttribute("playsinline", "playsinline");
     audio.setAttribute("webkit-playsinline", "webkit-playsinline");
-    audio.muted = current ? !current.speakerOn : false;
-    audio.volume = current?.speakerOn === false ? 0 : 1;
+    audio.muted = false;
+    audio.volume = 1;
     return audio;
   }
 
@@ -450,8 +449,8 @@ const WebCalls = (() => {
       audio.srcObject = current.remoteStream;
       audio.load?.();
     }
-    audio.muted = !current.speakerOn;
-    audio.volume = current.speakerOn ? 1 : 0;
+    audio.muted = false;
+    audio.volume = 1;
     if (!hasLiveAudioTrack(current.remoteStream)) {
       scheduleRemoteAudioRetry();
       return;
@@ -495,8 +494,8 @@ const WebCalls = (() => {
   function enableAudio(options = {}) {
     const audio = prepareRemoteAudio();
     if (current?.remoteStream) audio.srcObject = current.remoteStream;
-    audio.muted = current ? !current.speakerOn : false;
-    audio.volume = current?.speakerOn === false ? 0 : 1;
+    audio.muted = false;
+    audio.volume = 1;
     ensureToneContext();
     if (current && (current.status === "Incoming voice call" || current.status === "Ringing...")) {
       playToneBurst();
@@ -523,16 +522,6 @@ const WebCalls = (() => {
     audio.play?.()
       .then(() => { audioUnlocked = true; })
       .catch(() => {});
-  }
-
-  function toggleSpeaker() {
-    if (!current) return;
-    current.speakerOn = !current.speakerOn;
-    const audio = prepareRemoteAudio();
-    audio.muted = !current.speakerOn;
-    audio.volume = current.speakerOn ? 1 : 0;
-    if (current.speakerOn) enableAudio();
-    render();
   }
 
   async function stopCall(options = {}) {
@@ -703,7 +692,6 @@ const WebCalls = (() => {
           <div class="call-actions compact">
             <div class="call-tools-row">
               <button class="call-tool ${current.muted ? "active" : ""}" onclick="WebCalls.toggleMute()">${Icon(current.muted ? "micOff" : "mic", 19)}<span>${current.muted ? "Unmute" : "Mute"}</span></button>
-              <button class="call-tool ${current.speakerOn ? "active" : ""}" onclick="WebCalls.toggleSpeaker()">${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.speakerOn ? "Speaker On" : "Speaker Off"}</span></button>
             </div>
             <button class="call-btn danger" onclick="WebCalls.endCurrentCall()">${Icon("back", 20)}<span>End</span></button>
           </div>
@@ -720,7 +708,6 @@ const WebCalls = (() => {
     declineIncoming,
     endCurrentCall,
     toggleMute,
-    toggleSpeaker,
     enableAudio,
     unlockAudio,
   };

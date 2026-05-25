@@ -569,6 +569,30 @@ button, a, [onclick] { touch-action: manipulation; }
   letter-spacing: .05em;
 }
 
+.call-quality {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 22px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  color: rgba(232, 242, 236, .9);
+  background: rgba(255, 255, 255, .08);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.call-quality span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa79f;
+}
+
+.call-quality.good span { background: var(--green); }
+.call-quality.fair span { background: #f2b333; }
+.call-quality.poor span { background: var(--red); }
+
 .call-actions {
   display: flex;
   align-items: center;

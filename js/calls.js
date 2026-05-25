@@ -14,6 +14,7 @@ const WebCalls = (() => {
   let incomingPollTimer = null;
   let timeoutTimer = null;
   let durationTimer = null;
+  let qualityTimer = null;
   let processedSignals = new Set();
   let toneContext = null;
   let toneTimer = null;
@@ -142,6 +143,9 @@ const WebCalls = (() => {
       historySaved: false,
       connectedAt: 0,
       audioBlocked: false,
+      quality: "Checking",
+      qualityClass: "checking",
+      previousInboundStats: null,
       ...overrides,
     };
   }
@@ -484,6 +488,7 @@ const WebCalls = (() => {
     current.connectedAt = Date.now();
     render();
     startDurationTimer();
+    startQualityMonitor();
     if (current.callId) Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "connected", "").catch(() => {});
   }
 
@@ -596,6 +601,7 @@ const WebCalls = (() => {
     stopPolling();
     stopTimeout();
     stopDurationTimer();
+    stopQualityMonitor();
     if (options.writeHistory === true) {
       writeCallHistoryBubble(call, options.result || options.reason || "Ended");
     }
@@ -687,6 +693,63 @@ const WebCalls = (() => {
   function stopDurationTimer() {
     clearInterval(durationTimer);
     durationTimer = null;
+  }
+
+  function startQualityMonitor() {
+    stopQualityMonitor();
+    updateCallQuality();
+    qualityTimer = setInterval(updateCallQuality, 3000);
+  }
+
+  function stopQualityMonitor() {
+    clearInterval(qualityTimer);
+    qualityTimer = null;
+  }
+
+  async function updateCallQuality() {
+    const call = current;
+    if (!call?.pc || call.status !== "Connected" || typeof call.pc.getStats !== "function") return;
+    try {
+      const reports = await call.pc.getStats();
+      if (current !== call) return;
+      let inbound = null;
+      let candidatePair = null;
+      reports.forEach((report) => {
+        if (report.type === "inbound-rtp" && !report.isRemote && (report.kind === "audio" || report.mediaType === "audio")) {
+          inbound = report;
+        }
+        if (report.type === "candidate-pair" && report.state === "succeeded" && (report.selected || report.nominated)) {
+          candidatePair = report;
+        }
+      });
+      if (!inbound) return;
+
+      const previous = call.previousInboundStats;
+      const received = Number(inbound.packetsReceived || 0);
+      const lost = Number(inbound.packetsLost || 0);
+      const receivedDelta = previous ? Math.max(0, received - previous.received) : received;
+      const lostDelta = previous ? Math.max(0, lost - previous.lost) : Math.max(0, lost);
+      const packetTotal = receivedDelta + lostDelta;
+      const lossPercent = packetTotal ? (lostDelta / packetTotal) * 100 : 0;
+      const jitterMs = Number(inbound.jitter || 0) * 1000;
+      const rttMs = Number(candidatePair?.currentRoundTripTime || 0) * 1000;
+      call.previousInboundStats = { received, lost };
+
+      let quality = "Good";
+      let qualityClass = "good";
+      if (lossPercent > 8 || jitterMs > 80 || rttMs > 450) {
+        quality = "Poor";
+        qualityClass = "poor";
+      } else if (lossPercent > 3 || jitterMs > 40 || rttMs > 250) {
+        quality = "Fair";
+        qualityClass = "fair";
+      }
+      if (call.quality !== quality || call.qualityClass !== qualityClass) {
+        call.quality = quality;
+        call.qualityClass = qualityClass;
+        render();
+      }
+    } catch {}
   }
 
   function callHistoryResult(value) {
@@ -814,6 +877,7 @@ const WebCalls = (() => {
         <div class="call-vid">${current.otherVid ? `ID ${Utils.escape(current.otherVid)}` : ""}</div>
         <div class="call-status">${Utils.escape(current.status || "")}</div>
         ${current.status === "Connected" && current.connectedAt ? `<div class="call-duration">${formatElapsedDuration(current.connectedAt)}</div>` : ""}
+        ${current.status === "Connected" ? `<div class="call-quality ${Utils.escape(current.qualityClass)}"><span></span>Call quality: ${Utils.escape(current.quality)}</div>` : ""}
         ${current.audioBlocked ? `<button class="call-tool active" onclick="WebCalls.enableAudio()">Enable call sound</button>` : ""}
         ${incoming ? `
           <div class="call-actions">

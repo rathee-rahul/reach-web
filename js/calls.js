@@ -13,6 +13,7 @@ const WebCalls = (() => {
   let pollTimer = null;
   let incomingPollTimer = null;
   let timeoutTimer = null;
+  let durationTimer = null;
   let processedSignals = new Set();
   let toneContext = null;
   let toneTimer = null;
@@ -480,9 +481,11 @@ const WebCalls = (() => {
   async function markConnected() {
     if (!current || current.status === "Connected") return;
     stopTone();
+    stopTimeout();
     current.status = "Connected";
     current.connectedAt = Date.now();
     render();
+    startDurationTimer();
     if (current.callId) Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "connected", "").catch(() => {});
   }
 
@@ -594,6 +597,7 @@ const WebCalls = (() => {
     stopTone();
     stopPolling();
     stopTimeout();
+    stopDurationTimer();
     try {
       if (options.signal !== false && call.callId) {
         await Api.sendCallSignal(Auth.getToken(), call.callId, options.signalType || "call_end", { reason: options.reason || options.result || "ended" });
@@ -654,6 +658,33 @@ const WebCalls = (() => {
   function stopTimeout() {
     clearTimeout(timeoutTimer);
     timeoutTimer = null;
+  }
+
+  function formatElapsedDuration(startedAt) {
+    const elapsed = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
+    const seconds = elapsed % 60;
+    if (hours > 0) {
+      return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    }
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  }
+
+  function startDurationTimer() {
+    stopDurationTimer();
+    durationTimer = setInterval(() => {
+      if (!current || current.status !== "Connected") {
+        stopDurationTimer();
+        return;
+      }
+      render();
+    }, 1000);
+  }
+
+  function stopDurationTimer() {
+    clearInterval(durationTimer);
+    durationTimer = null;
   }
 
   async function sendSignal(type, payload) {
@@ -743,6 +774,7 @@ const WebCalls = (() => {
         <div class="call-name">${Utils.escape(current.otherName || "REACH User")}</div>
         <div class="call-vid">${current.otherVid ? `ID ${Utils.escape(current.otherVid)}` : ""}</div>
         <div class="call-status">${Utils.escape(current.status || "")}</div>
+        ${current.status === "Connected" && current.connectedAt ? `<div class="call-duration">${formatElapsedDuration(current.connectedAt)}</div>` : ""}
         ${current.audioBlocked ? `<button class="call-tool active" onclick="WebCalls.enableAudio()">Enable call sound</button>` : ""}
         ${incoming ? `
           <div class="call-actions">

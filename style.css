@@ -562,6 +562,13 @@ button, a, [onclick] { touch-action: manipulation; }
   font-weight: 700;
 }
 
+.call-duration {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .05em;
+}
+
 .call-actions {
   display: flex;
   align-items: center;

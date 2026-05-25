@@ -6,6 +6,7 @@ const Auth = {
   PHOTO_KEY: "reach_profile_photo",
   RECOVERY_EMAIL_KEY: "reach_recovery_email",
   RECOVERY_VERIFIED_KEY: "reach_recovery_email_verified",
+  SESSION_REPLACED_MESSAGE: "You were signed out because your account was signed in on another device.",
 
   getToken: () => localStorage.getItem(Auth.TOKEN_KEY),
   getVid: () => window.PREVIEW_MODE ? "12345678" : Utils.normalizeVid(localStorage.getItem(Auth.VID_KEY)),
@@ -50,9 +51,9 @@ const Auth = {
     }
   },
 
-  logout() {
+  logout(options = {}) {
     const token = Auth.getToken();
-    if (token) Api.setOffline(token).catch(() => {});
+    if (token && options.notifyServer !== false) Api.setOffline(token).catch(() => {});
     window.WebCalls?.reset?.();
     localStorage.removeItem(Auth.TOKEN_KEY);
     localStorage.removeItem(Auth.VID_KEY);
@@ -61,5 +62,11 @@ const Auth = {
     localStorage.removeItem(Auth.PHOTO_KEY);
     localStorage.removeItem(Auth.RECOVERY_EMAIL_KEY);
     localStorage.removeItem(Auth.RECOVERY_VERIFIED_KEY);
+  },
+
+  handleSessionInvalid() {
+    Auth.logout({ notifyServer: false });
+    window.location.hash = "landing";
+    showToast(Auth.SESSION_REPLACED_MESSAGE);
   },
 };

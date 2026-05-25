@@ -48,7 +48,10 @@ async function callFunction(name, body) {
     body: JSON.stringify(body || {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || data.message || "Request failed");
+  if (!res.ok) {
+    const message = data.error || data.message || "Request failed";
+    throw new Error(handleExpiredSession(message) || message);
+  }
   return data;
 }
 
@@ -75,8 +78,19 @@ async function callRpc(name, body, options = {}) {
       data = { raw: text };
     }
   }
-  if (!res.ok) throw new Error(data.error || data.message || data.hint || "Request failed");
+  if (!res.ok) {
+    const message = data.error || data.message || data.hint || "Request failed";
+    throw new Error(handleExpiredSession(message) || message);
+  }
   return data;
+}
+
+function handleExpiredSession(message) {
+  if (!/invalid session/i.test(String(message || ""))
+      || typeof Auth === "undefined"
+      || !Auth.isLoggedIn()) return "";
+  Auth.handleSessionInvalid();
+  return Auth.SESSION_REPLACED_MESSAGE;
 }
 
 function requireSupabaseConfig() {

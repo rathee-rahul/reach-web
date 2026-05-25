@@ -135,6 +135,8 @@ const WebCalls = (() => {
       pendingIce: [],
       remoteDescriptionSet: false,
       muted: false,
+      speakerOn: true,
+      outputSwitching: false,
       pushSent: false,
       connectedAt: 0,
       audioBlocked: false,
@@ -524,6 +526,65 @@ const WebCalls = (() => {
       .catch(() => {});
   }
 
+  function outputNameMatches(device, useSpeaker) {
+    const label = String(device?.label || "").toLowerCase();
+    if (!label) return false;
+    if (useSpeaker) return /speaker|speakerphone|loudspeaker/.test(label);
+    return /earpiece|receiver|handset/.test(label);
+  }
+
+  async function switchAudioOutput(useSpeaker) {
+    const audio = prepareRemoteAudio();
+    if (typeof audio.setSinkId !== "function") {
+      showToast("This browser cannot switch speaker and earpiece during calls");
+      return false;
+    }
+
+    const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+    const available = devices.filter((device) => device.kind === "audiooutput");
+    let selected = available.find((device) => outputNameMatches(device, useSpeaker));
+
+    if (!selected && typeof navigator.mediaDevices.selectAudioOutput === "function") {
+      showToast(useSpeaker ? "Select Speaker in the audio output list" : "Select Earpiece in the audio output list");
+      selected = await navigator.mediaDevices.selectAudioOutput().catch(() => null);
+    }
+    if (!selected) {
+      showToast(useSpeaker ? "Speaker selection is not available in this browser" : "Earpiece selection is not available in this browser");
+      return false;
+    }
+
+    const label = String(selected.label || "").toLowerCase();
+    if (label && outputNameMatches(selected, !useSpeaker) && !outputNameMatches(selected, useSpeaker)) {
+      showToast(useSpeaker ? "Select Speaker to turn speaker on" : "Select Earpiece to turn speaker off");
+      return false;
+    }
+
+    await audio.setSinkId(selected.deviceId);
+    audio.muted = false;
+    audio.volume = 1;
+    audio.play?.().catch(() => {});
+    return true;
+  }
+
+  async function toggleSpeaker() {
+    if (!current || current.outputSwitching) return;
+    const useSpeaker = !current.speakerOn;
+    current.outputSwitching = true;
+    render();
+    try {
+      if (await switchAudioOutput(useSpeaker)) {
+        current.speakerOn = useSpeaker;
+        showToast(useSpeaker ? "Speaker on" : "Speaker off - using earpiece");
+      }
+    } catch {
+      showToast("Could not change call audio output");
+    } finally {
+      if (!current) return;
+      current.outputSwitching = false;
+      render();
+    }
+  }
+
   async function stopCall(options = {}) {
     const call = current;
     if (!call) return;
@@ -692,6 +753,7 @@ const WebCalls = (() => {
           <div class="call-actions compact">
             <div class="call-tools-row">
               <button class="call-tool ${current.muted ? "active" : ""}" onclick="WebCalls.toggleMute()">${Icon(current.muted ? "micOff" : "mic", 19)}<span>${current.muted ? "Unmute" : "Mute"}</span></button>
+              <button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Speaker Off")}</span></button>
             </div>
             <button class="call-btn danger" onclick="WebCalls.endCurrentCall()">${Icon("back", 20)}<span>End</span></button>
           </div>
@@ -708,6 +770,7 @@ const WebCalls = (() => {
     declineIncoming,
     endCurrentCall,
     toggleMute,
+    toggleSpeaker,
     enableAudio,
     unlockAudio,
   };

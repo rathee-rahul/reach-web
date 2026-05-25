@@ -614,6 +614,16 @@ button, a, [onclick] { touch-action: manipulation; }
 .call-tool.active {
   background: var(--green);
 }
+.call-tool.speaker-on {
+  background: var(--green);
+}
+.call-tool.speaker-off {
+  background: var(--red);
+}
+.call-tool:disabled {
+  opacity: .7;
+  cursor: wait;
+}
 .icon-btn {
   width: 36px;
   height: 36px;

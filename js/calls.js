@@ -539,6 +539,10 @@ const WebCalls = (() => {
     return /earpiece|receiver|handset/.test(label);
   }
 
+  function canSwitchAudioOutput() {
+    return typeof prepareRemoteAudio().setSinkId === "function";
+  }
+
   async function switchAudioOutput(useSpeaker) {
     const audio = prepareRemoteAudio();
     if (typeof audio.setSinkId !== "function") {
@@ -888,7 +892,9 @@ const WebCalls = (() => {
           <div class="call-actions compact">
             <div class="call-tools-row">
               <button class="call-tool ${current.muted ? "active" : ""}" onclick="WebCalls.toggleMute()">${Icon(current.muted ? "micOff" : "mic", 19)}<span>${current.muted ? "Unmute" : "Mute"}</span></button>
-              <button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Speaker Off")}</span></button>
+              ${canSwitchAudioOutput()
+                ? `<button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Speaker Off")}</span></button>`
+                : `<button class="call-tool audio-fixed" disabled>${Icon("speaker", 19)}<span>Browser Audio</span></button>`}
             </div>
             <button class="call-btn danger" onclick="WebCalls.endCurrentCall()">${Icon("back", 20)}<span>End</span></button>
           </div>

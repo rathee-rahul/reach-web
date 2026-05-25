@@ -651,6 +651,10 @@ button, a, [onclick] { touch-action: manipulation; }
 .call-tool.speaker-off {
   background: var(--red);
 }
+.call-tool.audio-fixed {
+  background: #1d2823;
+  color: rgba(232, 242, 236, .78);
+}
 .call-tool:disabled {
   opacity: .7;
   cursor: wait;

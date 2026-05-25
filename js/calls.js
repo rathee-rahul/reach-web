@@ -139,6 +139,7 @@ const WebCalls = (() => {
       speakerOn: true,
       outputSwitching: false,
       pushSent: false,
+      historySaved: false,
       connectedAt: 0,
       audioBlocked: false,
       ...overrides,
@@ -598,6 +599,9 @@ const WebCalls = (() => {
     stopPolling();
     stopTimeout();
     stopDurationTimer();
+    if (options.writeHistory === true) {
+      writeCallHistoryBubble(call, options.result || options.reason || "Ended");
+    }
     try {
       if (options.signal !== false && call.callId) {
         await Api.sendCallSignal(Auth.getToken(), call.callId, options.signalType || "call_end", { reason: options.reason || options.result || "ended" });
@@ -617,7 +621,7 @@ const WebCalls = (() => {
 
   function declineIncoming() {
     if (!current) return;
-    stopCall({ result: "Declined", signal: true, signalType: "call_decline", updateStatus: true, status: "declined", reason: "declined" });
+    stopCall({ result: "Declined", signal: true, signalType: "call_decline", updateStatus: true, status: "declined", reason: "declined", writeHistory: true });
   }
 
   function endCurrentCall() {
@@ -625,7 +629,7 @@ const WebCalls = (() => {
     if (current.direction === "incoming" && current.status === "Incoming voice call") return declineIncoming();
     const signalType = current.direction === "outgoing" && current.status !== "Connected" ? "call_cancel" : "call_end";
     const status = signalType === "call_cancel" ? "cancelled" : "ended";
-    stopCall({ result: status, signal: true, signalType, updateStatus: true, status, reason: status });
+    stopCall({ result: status, signal: true, signalType, updateStatus: true, status, reason: status, writeHistory: true });
   }
 
   function startPolling(callId) {
@@ -651,6 +655,7 @@ const WebCalls = (() => {
         updateStatus: true,
         status: incoming ? "missed" : "cancelled",
         reason: incoming ? "missed" : "no_answer",
+        writeHistory: true,
       });
     }, CALL_TIMEOUT_MS);
   }
@@ -685,6 +690,43 @@ const WebCalls = (() => {
   function stopDurationTimer() {
     clearInterval(durationTimer);
     durationTimer = null;
+  }
+
+  function callHistoryResult(value) {
+    const key = String(value || "").toLowerCase().replace(/\s+/g, "_");
+    const labels = {
+      ended: "Ended",
+      declined: "Declined",
+      cancelled: "Cancelled",
+      no_answer: "No answer",
+      missed: "Missed",
+      failed: "Failed",
+      dropped: "Dropped",
+    };
+    return labels[key] || "Ended";
+  }
+
+  function callHistoryDuration(call) {
+    const seconds = call.connectedAt ? Math.max(0, Math.floor((Date.now() - call.connectedAt) / 1000)) : 0;
+    const minutes = Math.floor(seconds / 60);
+    const remaining = seconds % 60;
+    return minutes ? `${minutes}m ${remaining}s` : `${remaining}s`;
+  }
+
+  async function writeCallHistoryBubble(call, result) {
+    if (!call || call.historySaved || !call.chatId || !Auth.isLoggedIn()) return;
+    call.historySaved = true;
+    const direction = call.direction === "incoming" ? "Incoming" : "Outgoing";
+    const content = `${direction} voice call - ${callHistoryResult(result)} - ${callHistoryDuration(call)}`;
+    try {
+      await Api.sendCallHistoryBubble(Auth.getToken(), call.chatId, content);
+      if (typeof loadMessages === "function" && currentChatId === call.chatId) {
+        loadMessages(call.chatId, { scroll: false, silent: true });
+      }
+      if (typeof loadChatListFromServer === "function") {
+        loadChatListFromServer({ showError: false, preserveSearch: true });
+      }
+    } catch {}
   }
 
   async function sendSignal(type, payload) {

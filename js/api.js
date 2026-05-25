@@ -199,6 +199,12 @@ const Api = {
     if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");
     return callFunction("send-message", { session_token: sessionToken, chat_id: chatId, content_type: "text", content });
   },
+  sendCallHistoryBubble: (sessionToken, chatId, content) => callFunction("send-message", {
+    session_token: sessionToken,
+    chat_id: chatId,
+    content_type: "system",
+    content,
+  }),
   markSeen: (sessionToken, chatId) => callFunction("mark-seen", { session_token: sessionToken, chat_id: chatId }),
   editMessage: (sessionToken, messageId, content) => {
     if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");

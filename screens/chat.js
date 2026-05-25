@@ -204,7 +204,7 @@ function renderMessages(messages, myVid) {
     const isOut = Utils.isOwnMessage(message, myVid);
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
     const reply = parseReplyPayload(message.content);
-    const body = displayMessageContent(message.content);
+    const body = isCallHistoryMessage(message) ? callHistoryContentForViewer(message.content, isOut) : displayMessageContent(message.content);
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
         <div class="bubble ${isOut ? "out" : "in"}" onclick="showMsgMenu(${Utils.jsString(message.id)})">
@@ -219,6 +219,28 @@ function renderMessages(messages, myVid) {
       </div>`;
   });
   el.innerHTML = html;
+}
+
+function isCallHistoryMessage(message) {
+  if (message?.contentType !== "system") return false;
+  const content = String(message.content || "");
+  return content.startsWith("Voice call")
+    || content.startsWith("Incoming voice call")
+    || content.startsWith("Outgoing voice call");
+}
+
+function callHistoryContentForViewer(content, mine) {
+  const value = String(content || "Voice call");
+  if (value.startsWith("Voice call")) {
+    return `${mine ? "Outgoing" : "Incoming"} voice call${value.slice("Voice call".length)}`;
+  }
+  if (!mine && value.startsWith("Outgoing voice call")) {
+    return `Incoming voice call${value.slice("Outgoing voice call".length)}`;
+  }
+  if (!mine && value.startsWith("Incoming voice call")) {
+    return `Outgoing voice call${value.slice("Incoming voice call".length)}`;
+  }
+  return value;
 }
 
 function scrollToBottom() {

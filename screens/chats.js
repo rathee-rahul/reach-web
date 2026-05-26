@@ -34,7 +34,7 @@ Screen.chats = async function() {
   const cachedContacts = await LocalCache.getChatList(ownerVid);
   if (cachedContacts.length) {
     window._allChatContacts = cachedContacts;
-    renderChatList(cachedContacts);
+    renderChatList(cachedContacts, window._allChatGroups || []);
   }
 
   await loadChatListFromServer({ showError: !cachedContacts.length });
@@ -50,14 +50,19 @@ async function loadChatListFromServer(options = {}) {
   const ownerVid = Auth.getVid();
   Api.touchLastSeen(Auth.getToken()).catch(() => {});
   try {
-    const data = await Api.listContacts(Auth.getToken());
-    const contacts = data.contacts || data || [];
+    const [contactData, groupData] = await Promise.all([
+      Api.listContacts(Auth.getToken()),
+      Api.listGroups(Auth.getToken()),
+    ]);
+    const contacts = contactData.contacts || contactData || [];
+    const groups = groupData.groups || groupData || [];
     window._allChatContacts = contacts;
+    window._allChatGroups = groups;
     await LocalCache.saveChatList(ownerVid, contacts);
     if (options.preserveSearch) {
       filterChats(document.getElementById("chat-search")?.value || "");
     } else {
-      renderChatList(contacts);
+      renderChatList(contacts, groups);
     }
   } catch (error) {
     if (window._allChatContacts?.length) {
@@ -68,14 +73,45 @@ async function loadChatListFromServer(options = {}) {
   }
 }
 
-function renderChatList(contacts) {
+function renderChatList(contacts, groups = []) {
   const el = document.getElementById("chat-list");
   if (!el) return;
-  if (!contacts.length) {
+  if (!contacts.length && !groups.length) {
     el.innerHTML = '<div style="text-align:center;padding:40px 22px;color:var(--muted);">No chats yet. Add a contact to start messaging.</div>';
     return;
   }
-  el.innerHTML = contacts.map((contact) => {
+  const entries = contacts.map((contact) => ({
+    type: "contact",
+    value: contact,
+    time: contact.last_message_at || contact.lastMessageAt || "",
+  })).concat(groups.map((group) => ({
+    type: "group",
+    value: group,
+    time: group.last_message_at || group.lastMessageAt || group.created_at || group.createdAt || "",
+  })));
+  entries.sort((left, right) => new Date(right.time || 0) - new Date(left.time || 0));
+  el.innerHTML = entries.map((entry) => {
+    if (entry.type === "group") {
+      const group = entry.value;
+      const name = group.name || group.group_name || "Group";
+      const id = group.id || group.group_id || "";
+      const memberCount = Number(group.member_count || group.memberCount || 0);
+      const latest = group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`;
+      const unread = Number(group.unread_count || group.unreadCount || 0);
+      return `
+        <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
+          <div class="group-avatar">G</div>
+          <div class="row-info">
+            <div class="row-name">${Utils.escape(name)}</div>
+            <div class="row-sub">${Utils.escape(latest)}</div>
+          </div>
+          <div class="row-meta">
+            <span class="row-time">${Utils.chatRowTime(entry.time)}</span>
+            ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ""}
+          </div>
+        </div>`;
+    }
+    const contact = entry.value;
     const name = contact.display_name || contact.displayName || "REACH User";
     const vid = contact.vid || contact.contact_vid || contact.contactVid || "";
     const chatId = contact.chat_id || contact.chatId || "";
@@ -102,12 +138,21 @@ function renderChatList(contacts) {
 function filterChats(query) {
   if (!window._allChatContacts) return;
   const q = query.toLowerCase().trim();
-  const filtered = q
+  const filteredContacts = q
     ? window._allChatContacts.filter((contact) => {
         const name = (contact.display_name || contact.displayName || "").toLowerCase();
         const vid = String(contact.vid || contact.contact_vid || contact.contactVid || "");
-        return name.includes(q) || vid.includes(q);
+        const latest = String(contact.last_message || contact.lastMessage || "").toLowerCase();
+        return name.includes(q) || vid.includes(q) || latest.includes(q);
       })
     : window._allChatContacts;
-  renderChatList(filtered);
+  const groups = window._allChatGroups || [];
+  const filteredGroups = q
+    ? groups.filter((group) => {
+        const name = String(group.name || group.group_name || "").toLowerCase();
+        const latest = String(group.last_message || group.lastMessage || "").toLowerCase();
+        return name.includes(q) || latest.includes(q);
+      })
+    : groups;
+  renderChatList(filteredContacts, filteredGroups);
 }

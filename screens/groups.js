@@ -1,11 +1,19 @@
 let groupRefreshTimer = null;
+let groupTypingStopTimer = null;
+let groupTypingPollTimer = null;
 let currentGroupMessages = [];
 let currentGroupId = "";
 let currentGroupNameMap = {};
 
 window.addEventListener("hashchange", () => {
   clearInterval(groupRefreshTimer);
+  clearTimeout(groupTypingStopTimer);
+  clearInterval(groupTypingPollTimer);
+  if (currentGroupId) Api.setGroupTyping(Auth.getToken(), currentGroupId, false).catch(() => {});
   groupRefreshTimer = null;
+  groupTypingStopTimer = null;
+  groupTypingPollTimer = null;
+  currentGroupId = "";
 });
 
 Screen.groups = async function() {
@@ -57,6 +65,8 @@ Screen.group = async function(groupId, groupName) {
   currentGroupId = groupId;
   const groupArg = Utils.jsString(groupId);
   clearInterval(groupRefreshTimer);
+  clearTimeout(groupTypingStopTimer);
+  clearInterval(groupTypingPollTimer);
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
@@ -69,16 +79,42 @@ Screen.group = async function(groupId, groupName) {
       <div class="scroll chat-message-list" id="group-messages">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading group...</div>
       </div>
+      <div id="group-typing-label">typing...</div>
       <div class="chat-input-bar">
-        <input type="text" id="group-msg-input" maxlength="4000" placeholder="Message..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendGroupMsg(${groupArg});}">
+        <input type="text" id="group-msg-input" maxlength="4000" placeholder="Message..." oninput="handleGroupTyping(${groupArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendGroupMsg(${groupArg});}">
         <button class="send-btn" onclick="sendGroupMsg(${groupArg})" title="Send">${Icon("send", 18)}</button>
       </div>
     </div>`;
   await loadGroupThread(groupId);
+  startGroupTypingPolling(groupId);
   groupRefreshTimer = setInterval(() => {
     if (currentGroupId === groupId) loadGroupThread(groupId, { scroll: false, silent: true });
   }, 2000);
 };
+
+function handleGroupTyping(groupId) {
+  const value = document.getElementById("group-msg-input")?.value || "";
+  Api.setGroupTyping(Auth.getToken(), groupId, value.trim().length > 0).catch(() => {});
+  clearTimeout(groupTypingStopTimer);
+  groupTypingStopTimer = setTimeout(() => Api.setGroupTyping(Auth.getToken(), groupId, false).catch(() => {}), 2500);
+}
+
+function startGroupTypingPolling(groupId) {
+  clearInterval(groupTypingPollTimer);
+  const run = async () => {
+    try {
+      const data = await Api.getGroupTyping(Auth.getToken(), groupId);
+      const typing = data.typing === true || data.is_typing === true || data.isTyping === true;
+      const name = String(data.typing_name || data.typingName || "Someone");
+      const label = document.getElementById("group-typing-label");
+      if (!label) return;
+      label.textContent = `${name || "Someone"} typing...`;
+      label.style.display = typing ? "block" : "none";
+    } catch {}
+  };
+  run();
+  groupTypingPollTimer = setInterval(run, 1000);
+}
 
 async function loadGroupThread(groupId, options = {}) {
   try {
@@ -158,6 +194,8 @@ async function sendGroupMsg(groupId) {
   if (!text) return;
   if (text.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
   input.value = "";
+  clearTimeout(groupTypingStopTimer);
+  Api.setGroupTyping(Auth.getToken(), groupId, false).catch(() => {});
   const tempId = `temp-group-${Date.now()}`;
   const tempMessage = Utils.normalizeMessage({
     id: tempId,

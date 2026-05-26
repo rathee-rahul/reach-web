@@ -125,7 +125,8 @@ async function previewFunction(name, body) {
   }
   if (name === "get-contact-presence") return { online: true, visible: true, lastSeenAt: new Date().toISOString() };
   if (name === "get-chat-typing") return { typing: true, typing_vid: "87654321" };
-  if (name === "touch-last-seen" || name === "set-offline" || name === "set-chat-typing" || name === "mark-seen") return { ok: true };
+  if (name === "get-group-typing") return { typing: true, typing_name: "Rahul" };
+  if (name === "touch-last-seen" || name === "set-offline" || name === "set-chat-typing" || name === "set-group-typing" || name === "mark-seen") return { ok: true };
   if (name === "list-groups") return { groups: [{ id: "preview-group-1", name: "REACH Team", memberCount: 3 }] };
   if (name === "list-group-messages") return { messages: [
     { id: "gm1", groupId: body.group_id, senderVid: "87654321", content: "Group messages are visible here.", sentAt: new Date(Date.now() - 600000).toISOString() },
@@ -240,6 +241,8 @@ const Api = {
   setOffline: (sessionToken) => callFunction("set-offline", { session_token: sessionToken }),
   setTyping: (sessionToken, chatId, isTyping) => callFunction("set-chat-typing", { session_token: sessionToken, chat_id: chatId, is_typing: isTyping }),
   getTyping: (sessionToken, chatId) => callFunction("get-chat-typing", { session_token: sessionToken, chat_id: chatId }),
+  setGroupTyping: (sessionToken, groupId, isTyping) => callFunction("set-group-typing", { session_token: sessionToken, group_id: groupId, is_typing: isTyping }),
+  getGroupTyping: (sessionToken, groupId) => callFunction("get-group-typing", { session_token: sessionToken, group_id: groupId }),
 
   getPrivacySettings: (sessionToken) => callFunction("get-privacy-settings", { session_token: sessionToken }),
   updatePrivacySettings: (sessionToken, settings) => callFunction("update-privacy-settings", { session_token: sessionToken, ...settings }),

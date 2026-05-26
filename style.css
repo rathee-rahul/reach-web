@@ -145,6 +145,9 @@ body {
   flex-shrink: 0;
 }
 .header-title { font-size: 17px; font-weight: 700; color: var(--ink); flex: 1; }
+.app-brand { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.05; }
+.app-brand b { font-size: 17px; color: var(--green); letter-spacing: .04em; }
+.app-brand span { margin-top: 2px; font-size: 11px; color: var(--muted); font-weight: 600; }
 .back-btn { color: var(--green); font-size: 22px; cursor: pointer; line-height: 1; padding: 2px 8px 2px 0; }
 .chat-title-area { flex: 1; min-width: 0; align-self: center; }
 .chat-title-name { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -230,6 +233,7 @@ button, a, [onclick] { touch-action: manipulation; }
 .row-info { flex: 1; min-width: 0; }
 .row-name { font-size: 15px; font-weight: 600; color: var(--ink); }
 .row-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub.typing { color: var(--green); font-style: italic; font-weight: 600; }
 .row-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
 .row-time { font-size: 11px; color: var(--muted); }
 .row-actions {
@@ -367,7 +371,8 @@ button, a, [onclick] { touch-action: manipulation; }
 .date-pill span { background: rgba(255,255,255,.7); border-radius: 10px; padding: 2px 10px; }
 
 /* â”€â”€ Typing indicator â”€â”€ */
-#typing-label {
+#typing-label,
+#group-typing-label {
   background: var(--chat-bg);
   min-height: 22px;
   padding: 3px 16px 4px;

@@ -1,4 +1,6 @@
 let chatListTimer = null;
+let chatListTypingById = {};
+let groupListTypingById = {};
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatListTimer);
@@ -10,7 +12,7 @@ Screen.chats = async function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
-        <span class="header-title">Chats</span>
+        <div class="app-brand"><b>REACH</b><span>Chats</span></div>
         <button class="vid-chip" onclick="copyVid()" title="Copy REACH ID">#${Utils.escape(vid)}</button>
         <button class="header-icon-btn" onclick="go('contacts')" title="New chat">${Icon("plus")}</button>
       </div>
@@ -59,6 +61,7 @@ async function loadChatListFromServer(options = {}) {
     window._allChatContacts = contacts;
     window._allChatGroups = groups;
     await LocalCache.saveChatList(ownerVid, contacts);
+    loadChatListTypingStatuses(contacts, groups);
     if (options.preserveSearch) {
       filterChats(document.getElementById("chat-search")?.value || "");
     } else {
@@ -96,14 +99,17 @@ function renderChatList(contacts, groups = []) {
       const name = group.name || group.group_name || "Group";
       const id = group.id || group.group_id || "";
       const memberCount = Number(group.member_count || group.memberCount || 0);
-      const latest = group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`;
+      const typingName = groupListTypingById[id];
+      const latest = typingName !== undefined
+        ? `${typingName || "Someone"} typing...`
+        : (group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`);
       const unread = Number(group.unread_count || group.unreadCount || 0);
       return `
         <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
           <div class="group-avatar">G</div>
           <div class="row-info">
             <div class="row-name">${Utils.escape(name)}</div>
-            <div class="row-sub">${Utils.escape(latest)}</div>
+            <div class="row-sub ${typingName !== undefined ? "typing" : ""}">${Utils.escape(latest)}</div>
           </div>
           <div class="row-meta">
             <span class="row-time">${Utils.chatRowTime(entry.time)}</span>
@@ -117,7 +123,8 @@ function renderChatList(contacts, groups = []) {
     const chatId = contact.chat_id || contact.chatId || "";
     const avatar = contact.avatar_id || contact.avatarId || 1;
     const photo = contact.profile_photo || contact.profilePhoto || "";
-    const latest = contact.last_message || contact.lastMessage || "Tap to open chat";
+    const typing = chatListTypingById[chatId] === true;
+    const latest = typing ? "typing..." : (contact.last_message || contact.lastMessage || "Tap to open chat");
     const time = contact.last_message_at || contact.lastMessageAt || "";
     const unread = Number(contact.unread_count || contact.unreadCount || 0);
     return `
@@ -125,7 +132,7 @@ function renderChatList(contacts, groups = []) {
         ${Avatar(name, avatar, 44, photo)}
         <div class="row-info">
           <div class="row-name">${Utils.escape(name)}</div>
-          <div class="row-sub">${Utils.escape(latest || "Tap to open chat")}</div>
+          <div class="row-sub ${typing ? "typing" : ""}">${Utils.escape(latest || "Tap to open chat")}</div>
         </div>
         <div class="row-meta">
           <span class="row-time">${Utils.chatRowTime(time)}</span>
@@ -133,6 +140,40 @@ function renderChatList(contacts, groups = []) {
         </div>
       </div>`;
   }).join("");
+}
+
+async function loadChatListTypingStatuses(contacts, groups) {
+  let changed = false;
+  await Promise.all(contacts.map(async (contact) => {
+    const chatId = contact.chat_id || contact.chatId || "";
+    if (!chatId) return;
+    try {
+      const data = await Api.getTyping(Auth.getToken(), chatId);
+      const typing = data.typing === true || data.is_typing === true || data.isTyping === true;
+      if (chatListTypingById[chatId] !== typing) {
+        chatListTypingById[chatId] = typing;
+        changed = true;
+      }
+    } catch {}
+  }));
+  await Promise.all(groups.map(async (group) => {
+    const id = group.id || group.group_id || "";
+    if (!id) return;
+    try {
+      const data = await Api.getGroupTyping(Auth.getToken(), id);
+      const typing = data.typing === true || data.is_typing === true || data.isTyping === true;
+      const name = String(data.typing_name || data.typingName || "");
+      const value = typing ? name : undefined;
+      if (groupListTypingById[id] !== value) {
+        if (value === undefined) delete groupListTypingById[id];
+        else groupListTypingById[id] = value;
+        changed = true;
+      }
+    } catch {}
+  }));
+  if (changed && (location.hash.slice(1).split("/")[0] === "chats" || !location.hash.slice(1))) {
+    filterChats(document.getElementById("chat-search")?.value || "");
+  }
 }
 
 function filterChats(query) {

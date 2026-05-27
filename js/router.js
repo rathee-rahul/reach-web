@@ -21,7 +21,7 @@ function stopWebPresenceHeartbeat() {
     clearInterval(reachPresenceHeartbeat);
     reachPresenceHeartbeat = null;
   }
-  if (!isPreviewMode() && Auth.isLoggedIn()) {
+  if (!isPreviewMode() && Auth.isLoggedIn() && !WebCalls?.hasActiveCall?.()) {
     Api.setOffline(Auth.getToken()).catch(() => {});
   }
 }

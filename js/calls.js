@@ -7,6 +7,7 @@ const WebCalls = (() => {
   const SIGNAL_POLL_MS = 1200;
   const INCOMING_POLL_MS = 2500;
   const CALL_TIMEOUT_MS = 45000;
+  const DISCONNECT_GRACE_MS = 30000;
   let client = null;
   let channel = null;
   let current = null;
@@ -21,6 +22,7 @@ const WebCalls = (() => {
   let toneNodes = [];
   let audioUnlocked = false;
   let remoteAudioRetryTimer = null;
+  let disconnectTimer = null;
 
   function supported() {
     return !!(navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection);
@@ -146,6 +148,7 @@ const WebCalls = (() => {
       quality: "Checking",
       qualityClass: "checking",
       previousInboundStats: null,
+      minimized: false,
       ...overrides,
     };
   }
@@ -415,10 +418,28 @@ const WebCalls = (() => {
 
   function handlePeerState(state) {
     if (!current) return;
-    if (["connected", "completed"].includes(state)) markConnected();
-    if (["failed", "closed"].includes(state)) {
-      if (current.status === "Connected") stopCall({ result: "Dropped", signal: true, signalType: "call_end", updateStatus: true, reason: "dropped" });
+    if (["connected", "completed"].includes(state)) {
+      clearDisconnectTimer();
+      markConnected();
+      return;
     }
+    if (["disconnected", "failed"].includes(state) && current.status === "Connected") {
+      if (disconnectTimer) return;
+      current.quality = "Reconnecting";
+      current.qualityClass = "fair";
+      render();
+      disconnectTimer = setTimeout(() => {
+        disconnectTimer = null;
+        if (current?.status === "Connected") {
+          stopCall({ result: "Dropped", signal: true, signalType: "call_end", updateStatus: true, reason: "dropped" });
+        }
+      }, DISCONNECT_GRACE_MS);
+    }
+  }
+
+  function clearDisconnectTimer() {
+    clearTimeout(disconnectTimer);
+    disconnectTimer = null;
   }
 
   function prepareRemoteAudio() {
@@ -601,6 +622,7 @@ const WebCalls = (() => {
     current = null;
     clearTimeout(remoteAudioRetryTimer);
     remoteAudioRetryTimer = null;
+    clearDisconnectTimer();
     stopTone();
     stopPolling();
     stopTimeout();
@@ -637,6 +659,22 @@ const WebCalls = (() => {
     const signalType = current.direction === "outgoing" && current.status !== "Connected" ? "call_cancel" : "call_end";
     const status = signalType === "call_cancel" ? "cancelled" : "ended";
     stopCall({ result: status, signal: true, signalType, updateStatus: true, status, reason: status, writeHistory: true });
+  }
+
+  function minimize() {
+    if (!current || current.direction === "incoming" && current.status === "Incoming voice call") return;
+    current.minimized = true;
+    render();
+  }
+
+  function restore() {
+    if (!current) return;
+    current.minimized = false;
+    render();
+  }
+
+  function hasActiveCall() {
+    return !!current;
   }
 
   function startPolling(callId) {
@@ -871,10 +909,18 @@ const WebCalls = (() => {
       overlay.id = "reach-call-overlay";
       document.body.appendChild(overlay);
     }
+    if (current.minimized) {
+      overlay.className = "call-mini";
+      overlay.innerHTML = `
+        <button class="call-mini-main" onclick="WebCalls.restore()">${Icon("call", 18)}<span>${Utils.escape(current.otherName || "Voice call")} · ${Utils.escape(current.status || "Connected")}</span></button>
+        <button class="call-mini-end" onclick="WebCalls.endCurrentCall()" title="End call">${Icon("back", 18)}</button>`;
+      return;
+    }
     const incoming = current.direction === "incoming" && current.status === "Incoming voice call";
     overlay.className = "call-overlay";
     overlay.innerHTML = `
       <div class="call-panel">
+        ${incoming ? "" : `<button class="call-minimize" onclick="WebCalls.minimize()" title="Browse while on call">${Icon("back", 18)}<span>Back to app</span></button>`}
         <div class="call-title">${incoming ? "Incoming Call" : "Voice Call"}</div>
         <div class="call-avatar">${Avatar(current.otherName, current.otherAvatar || 1, 96, current.otherPhoto || "")}</div>
         <div class="call-name">${Utils.escape(current.otherName || "REACH User")}</div>
@@ -914,6 +960,9 @@ const WebCalls = (() => {
     toggleSpeaker,
     enableAudio,
     unlockAudio,
+    minimize,
+    restore,
+    hasActiveCall,
   };
 })();
 

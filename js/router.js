@@ -89,6 +89,7 @@ const Router = {
       if (document.visibilityState === "visible") {
         startWebPresenceHeartbeat();
         touchWebPresence();
+        WebCalls?.onVisibilityChanged?.();
       } else {
         stopWebPresenceHeartbeat();
       }

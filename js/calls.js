@@ -23,6 +23,7 @@ const WebCalls = (() => {
   let audioUnlocked = false;
   let remoteAudioRetryTimer = null;
   let disconnectTimer = null;
+  let screenWakeLock = null;
 
   function supported() {
     return !!(navigator.mediaDevices?.getUserMedia && window.RTCPeerConnection);
@@ -139,7 +140,7 @@ const WebCalls = (() => {
       pendingIce: [],
       remoteDescriptionSet: false,
       muted: false,
-      speakerOn: true,
+      speakerOn: false,
       outputSwitching: false,
       pushSent: false,
       historySaved: false,
@@ -508,6 +509,8 @@ const WebCalls = (() => {
     current.status = "Connected";
     current.connectedAt = Date.now();
     render();
+    requestCallWakeLock();
+    preferSpeakerOutput();
     startDurationTimer();
     startQualityMonitor();
     if (current.callId) Api.updateVoiceCallStatus(Auth.getToken(), current.callId, "connected", "").catch(() => {});
@@ -564,10 +567,10 @@ const WebCalls = (() => {
     return typeof prepareRemoteAudio().setSinkId === "function";
   }
 
-  async function switchAudioOutput(useSpeaker) {
+  async function switchAudioOutput(useSpeaker, options = {}) {
     const audio = prepareRemoteAudio();
     if (typeof audio.setSinkId !== "function") {
-      showToast("This browser cannot switch speaker and earpiece during calls");
+      if (!options.silent) showToast("This browser controls the call audio route");
       return false;
     }
 
@@ -575,12 +578,12 @@ const WebCalls = (() => {
     const available = devices.filter((device) => device.kind === "audiooutput");
     let selected = available.find((device) => outputNameMatches(device, useSpeaker));
 
-    if (!selected && typeof navigator.mediaDevices.selectAudioOutput === "function") {
+    if (!selected && !options.silent && typeof navigator.mediaDevices.selectAudioOutput === "function") {
       showToast(useSpeaker ? "Select Speaker in the audio output list" : "Select Earpiece in the audio output list");
       selected = await navigator.mediaDevices.selectAudioOutput().catch(() => null);
     }
     if (!selected) {
-      showToast(useSpeaker ? "Speaker selection is not available in this browser" : "Earpiece selection is not available in this browser");
+      if (!options.silent) showToast(useSpeaker ? "Speaker selection is not available in this browser" : "Earpiece selection is not available in this browser");
       return false;
     }
 
@@ -595,6 +598,16 @@ const WebCalls = (() => {
     audio.volume = 1;
     audio.play?.().catch(() => {});
     return true;
+  }
+
+  async function preferSpeakerOutput() {
+    if (!current || !canSwitchAudioOutput()) return;
+    try {
+      if (await switchAudioOutput(true, { silent: true })) {
+        current.speakerOn = true;
+        render();
+      }
+    } catch {}
   }
 
   async function toggleSpeaker() {
@@ -616,6 +629,26 @@ const WebCalls = (() => {
     }
   }
 
+  async function requestCallWakeLock() {
+    if (screenWakeLock || !current || current.status !== "Connected" || document.visibilityState !== "visible" || !navigator.wakeLock?.request) return;
+    try {
+      screenWakeLock = await navigator.wakeLock.request("screen");
+      screenWakeLock.addEventListener("release", () => { screenWakeLock = null; });
+    } catch {}
+  }
+
+  function releaseCallWakeLock() {
+    if (screenWakeLock) screenWakeLock.release().catch(() => {});
+    screenWakeLock = null;
+  }
+
+  function onVisibilityChanged() {
+    if (document.visibilityState === "visible" && current?.status === "Connected") {
+      requestCallWakeLock();
+      attachRemoteAudio();
+    }
+  }
+
   async function stopCall(options = {}) {
     const call = current;
     if (!call) return;
@@ -623,6 +656,7 @@ const WebCalls = (() => {
     clearTimeout(remoteAudioRetryTimer);
     remoteAudioRetryTimer = null;
     clearDisconnectTimer();
+    releaseCallWakeLock();
     stopTone();
     stopPolling();
     stopTimeout();
@@ -939,9 +973,10 @@ const WebCalls = (() => {
             <div class="call-tools-row">
               <button class="call-tool ${current.muted ? "active" : ""}" onclick="WebCalls.toggleMute()">${Icon(current.muted ? "micOff" : "mic", 19)}<span>${current.muted ? "Unmute" : "Mute"}</span></button>
               ${canSwitchAudioOutput()
-                ? `<button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Speaker Off")}</span></button>`
-                : `<button class="call-tool audio-fixed" disabled>${Icon("speaker", 19)}<span>Browser Audio</span></button>`}
+                ? `<button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Use Speaker")}</span></button>`
+                : `<button class="call-tool audio-fixed" disabled>${Icon("speaker", 19)}<span>Phone Controls Audio</span></button>`}
             </div>
+            ${canSwitchAudioOutput() ? "" : `<div class="call-browser-note">If your screen turns off near your ear, the browser is using phone call audio. Use the Android app for reliable background calls.</div>`}
             <button class="call-btn danger" onclick="WebCalls.endCurrentCall()">${Icon("back", 20)}<span>End</span></button>
           </div>
         `}
@@ -963,6 +998,7 @@ const WebCalls = (() => {
     minimize,
     restore,
     hasActiveCall,
+    onVisibilityChanged,
   };
 })();
 

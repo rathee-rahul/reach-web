@@ -730,6 +730,14 @@ button, a, [onclick] { touch-action: manipulation; }
   opacity: .7;
   cursor: wait;
 }
+
+.call-browser-note {
+  max-width: 310px;
+  color: rgba(232, 242, 236, .72);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
 .icon-btn {
   width: 36px;
   height: 36px;

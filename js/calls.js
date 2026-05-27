@@ -960,6 +960,7 @@ const WebCalls = (() => {
         <div class="call-name">${Utils.escape(current.otherName || "REACH User")}</div>
         <div class="call-vid">${current.otherVid ? `ID ${Utils.escape(current.otherVid)}` : ""}</div>
         <div class="call-status">${Utils.escape(current.status || "")}</div>
+        <div class="call-web-disclaimer"><b>Web call:</b> speaker mode only due to browser limitations. Use the Android app for full call features.</div>
         ${current.status === "Connected" && current.connectedAt ? `<div class="call-duration">${formatElapsedDuration(current.connectedAt)}</div>` : ""}
         ${current.status === "Connected" ? `<div class="call-quality ${Utils.escape(current.qualityClass)}"><span></span>Call quality: ${Utils.escape(current.quality)}</div>` : ""}
         ${current.audioBlocked ? `<button class="call-tool active" onclick="WebCalls.enableAudio()">Enable call sound</button>` : ""}
@@ -976,7 +977,7 @@ const WebCalls = (() => {
                 ? `<button class="call-tool ${current.speakerOn ? "speaker-on" : "speaker-off"}" onclick="WebCalls.toggleSpeaker()" ${current.outputSwitching ? "disabled" : ""}>${Icon(current.speakerOn ? "speaker" : "speakerOff", 19)}<span>${current.outputSwitching ? "Switching..." : (current.speakerOn ? "Speaker On" : "Use Speaker")}</span></button>`
                 : `<button class="call-tool audio-fixed" disabled>${Icon("speaker", 19)}<span>Phone Controls Audio</span></button>`}
             </div>
-            ${canSwitchAudioOutput() ? "" : `<div class="call-browser-note">If your screen turns off near your ear, the browser is using phone call audio. Use the Android app for reliable background calls.</div>`}
+            ${canSwitchAudioOutput() ? "" : `<div class="call-browser-note">Your browser may still control audio routing and screen behavior on this phone.</div>`}
             <button class="call-btn danger" onclick="WebCalls.endCurrentCall()">${Icon("back", 20)}<span>End</span></button>
           </div>
         `}

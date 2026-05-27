@@ -738,6 +738,19 @@ button, a, [onclick] { touch-action: manipulation; }
   line-height: 1.45;
   text-align: center;
 }
+
+.call-web-disclaimer {
+  max-width: 320px;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border: 1px solid rgba(242, 179, 51, .28);
+  border-radius: 10px;
+  background: rgba(242, 179, 51, .1);
+  color: rgba(255, 242, 208, .94);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
 .icon-btn {
   width: 36px;
   height: 36px;

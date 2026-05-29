@@ -8,10 +8,15 @@ Screen.landing = function() {
         <div class="reach-title">REACH</div>
         <div class="reach-subtitle">Don't share your number.<br>Share your REACH ID.</div>
         <div class="auth-actions">
-          <button class="reach-download pill" onclick="openApkLink()">Download Android App</button>
           <button class="reach-primary pill" onclick="go('create')">Create Account</button>
           <div id="google-signup-landing" class="google-render-slot"></div>
           <button class="reach-secondary pill" onclick="go('login')">Sign In</button>
+          <button class="reach-primary pill" onclick="openApkLink()" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="white">
+              <path d="M17.523 15.341a.7.7 0 0 1-.7.7H7.177a.7.7 0 0 1-.7-.7V8.66a.7.7 0 0 1 .7-.7h9.646a.7.7 0 0 1 .7.7v6.681zM14.7 3.48l1.05-1.87a.22.22 0 0 0-.386-.216l-1.063 1.893A6.6 6.6 0 0 0 12 2.9a6.6 6.6 0 0 0-2.302.387L8.636 1.394a.22.22 0 0 0-.386.216L9.3 3.48A6.54 6.54 0 0 0 5.4 9h13.2A6.54 6.54 0 0 0 14.7 3.48zM9.5 6.9a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2zm5 0a.6.6 0 1 1 0-1.2.6.6 0 0 1 0 1.2zM5.4 9.7v8.4a1.4 1.4 0 0 0 1.4 1.4h.7v3.15a1.05 1.05 0 1 0 2.1 0V19.5h4.8v3.15a1.05 1.05 0 1 0 2.1 0V19.5h.7a1.4 1.4 0 0 0 1.4-1.4V9.7H5.4z"/>
+            </svg>
+            Download Android App
+          </button>
         </div>
         <div class="auth-note">Download first or create your REACH ID here. You can return with your REACH ID and password after reinstalling.</div>
       </div>

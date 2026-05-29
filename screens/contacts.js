@@ -64,20 +64,23 @@ function filterContacts(query) {
   renderContactList(filtered);
 }
 
-Screen.addContact = function() {
+Screen.addContact = function(returnRoute = "contacts") {
+  const backRoute = returnRoute === "chats" ? "chats" : "contacts";
+  const navRoute = backRoute === "chats" ? "chats" : "contacts";
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
-        <button class="plain-icon-btn" onclick="go('contacts')" title="Back">${Icon("back")}</button>
-        <span class="header-title">Add Contact</span>
+        <button class="plain-icon-btn" onclick="go('${backRoute}')" title="Back">${Icon("back")}</button>
+        <span class="header-title">Add REACH ID</span>
       </div>
       <div class="scroll" style="padding:24px 20px;display:flex;flex-direction:column;gap:14px;">
         <input id="search-vid" type="text" inputmode="numeric" placeholder="Enter REACH ID (8 digits)" maxlength="8">
         <button class="send-btn wide labeled" id="search-btn" onclick="searchVid()" title="Find contact">${Icon("search", 18)}<span>Find</span></button>
         <div id="search-result"></div>
       </div>
-      ${BottomNav("contacts")}
+      ${BottomNav(navRoute)}
     </div>`;
+  window._addContactReturnRoute = backRoute;
 };
 
 async function searchVid() {
@@ -110,7 +113,7 @@ async function sendReq(vid) {
   try {
     await Api.sendRequest(Auth.getToken(), vid);
     showToast("Request sent");
-    go("contacts");
+    go(window._addContactReturnRoute || "contacts");
   } catch (error) {
     showToast(error.message);
   }

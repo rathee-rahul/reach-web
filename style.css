@@ -808,6 +808,44 @@ button, a, [onclick] { touch-action: manipulation; }
 .modal-icon { font-size: 40px; margin-bottom: 12px; }
 .modal-title { font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
 .modal-sub { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 24px; }
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.apk-warning-sheet {
+  position: relative;
+  text-align: left;
+}
+.apk-warning-sheet .modal-icon,
+.apk-warning-sheet .modal-title {
+  text-align: center;
+}
+.apk-warning-sheet .modal-sub {
+  margin-bottom: 14px;
+}
+.apk-steps {
+  margin: 0 0 18px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--warn-soft);
+  border: 1px solid #E8C860;
+  color: var(--warn);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.35;
+}
 
 /* â”€â”€ Search â”€â”€ */
 .search-bar { padding: 10px 16px; background: var(--surface); border-bottom: 0.5px solid var(--line); }
@@ -917,6 +955,7 @@ button, a, [onclick] { touch-action: manipulation; }
 }
 .reach-primary,
 .reach-secondary,
+.reach-download,
 .google-btn {
   min-height: 54px;
   border-radius: 12px;
@@ -928,6 +967,13 @@ button, a, [onclick] { touch-action: manipulation; }
 }
 .reach-primary { width: 100%; background: var(--green); color: #fff; }
 .reach-secondary { width: 100%; background: var(--surface-2); color: var(--ink); border-color: var(--line); }
+.reach-download {
+  width: 100%;
+  background: var(--landing-bg);
+  color: var(--landing-text);
+  border-color: rgba(24, 24, 15, .16);
+}
+.auth-download-link { margin-top: 4px; }
 .pill { min-height: 56px; border-radius: 28px; font-size: 16px; }
 .google-btn {
   width: 100%;
@@ -1175,6 +1221,17 @@ button, a, [onclick] { touch-action: manipulation; }
 .empty-card { text-align: center; }
 .empty-card b, .empty-card span { display: block; }
 .empty-card span { margin-top: 6px; color: var(--muted); font-size: 13px; }
+.chat-empty-action {
+  margin-top: 24px;
+}
+.add-contact-cta {
+  margin-top: 14px;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
 
 /* â”€â”€ Profile â”€â”€ */
 .profile-hero {

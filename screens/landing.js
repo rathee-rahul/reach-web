@@ -8,11 +8,12 @@ Screen.landing = function() {
         <div class="reach-title">REACH</div>
         <div class="reach-subtitle">Don't share your number.<br>Share your REACH ID.</div>
         <div class="auth-actions">
+          <button class="reach-download pill" onclick="openApkLink()">Download Android App</button>
           <button class="reach-primary pill" onclick="go('create')">Create Account</button>
           <div id="google-signup-landing" class="google-render-slot"></div>
           <button class="reach-secondary pill" onclick="go('login')">Sign In</button>
         </div>
-        <div class="auth-note">You can return with your REACH ID and password after reinstalling.</div>
+        <div class="auth-note">Download first or create your REACH ID here. You can return with your REACH ID and password after reinstalling.</div>
       </div>
     </div>`;
   mountGoogleButtons();
@@ -65,6 +66,7 @@ Screen.createAccount = function() {
           <button class="reach-primary" id="create-btn" onclick="doCreateAccount()">Create My REACH ID</button>
           <p class="terms">By joining you agree to our Terms and Privacy Policy. We never sell your data.</p>
           <button class="link-btn" onclick="go('login')">Already on REACH? Sign in</button>
+          <button class="link-btn small auth-download-link" onclick="openApkLink()">Download Android app instead</button>
           <button class="link-btn small" onclick="showDownloadModal('Account Recovery','Mail')">Forgot VID / Password?</button>
         </div>
       </div>
@@ -91,6 +93,7 @@ Screen.login = function() {
           </div>
           <button class="reach-primary" id="login-btn" onclick="doLogin()">Sign In</button>
           <button class="link-btn align-right" onclick="showDownloadModal('Account Recovery','Mail')">Forgot VID / Password?</button>
+          <button class="link-btn small auth-download-link" onclick="openApkLink()">Download Android app</button>
         </div>
       </div>
     </div>`;

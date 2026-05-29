@@ -14,7 +14,7 @@ Screen.chats = async function() {
       <div class="header">
         <div class="app-brand"><b>REACH</b><span>Chats</span></div>
         <button class="vid-chip" onclick="copyVid()" title="Copy REACH ID">#${Utils.escape(vid)}</button>
-        <button class="header-icon-btn" onclick="go('contacts')" title="New chat">${Icon("plus")}</button>
+        <button class="header-icon-btn primary" onclick="Screen.addContact('chats')" title="Add REACH ID">${Icon("plus")}</button>
       </div>
       <div class="dl-banner">
         <div class="dl-banner-text">Use the Android app for app lock, notification badges, voice notes and full device features.</div>
@@ -80,7 +80,12 @@ function renderChatList(contacts, groups = []) {
   const el = document.getElementById("chat-list");
   if (!el) return;
   if (!contacts.length && !groups.length) {
-    el.innerHTML = '<div style="text-align:center;padding:40px 22px;color:var(--muted);">No chats yet. Add a contact to start messaging.</div>';
+    el.innerHTML = `
+      <div class="empty-card chat-empty-action">
+        <b>No chats yet</b>
+        <span>Add a REACH ID to start messaging.</span>
+        <button class="reach-primary add-contact-cta" onclick="Screen.addContact('chats')">${Icon("plus", 18)}<span>Add Contact</span></button>
+      </div>`;
     return;
   }
   const entries = contacts.map((contact) => ({

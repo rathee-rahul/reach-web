@@ -207,7 +207,7 @@ function renderMessages(messages, myVid) {
     const body = isCallHistoryMessage(message) ? callHistoryContentForViewer(message.content, isOut) : displayMessageContent(message.content);
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
-        <div class="bubble ${isOut ? "out" : "in"}" onclick="showMsgMenu(${Utils.jsString(message.id)})">
+        <div class="bubble ${isOut ? "out" : "in"}" onclick="handleBubbleTap(event, ${Utils.jsString(message.id)})">
           ${reply.hasReply ? `
             <div class="reply-quote ${isOut ? "out" : "in"}">
               <b>${Utils.escape(reply.name || "Message")}</b>
@@ -219,6 +219,72 @@ function renderMessages(messages, myVid) {
       </div>`;
   });
   el.innerHTML = html;
+  attachSwipeReplyHandlers(myVid);
+}
+
+function handleBubbleTap(event, messageId) {
+  const bubble = event?.currentTarget;
+  if (bubble?.dataset?.swiped === "1") {
+    bubble.dataset.swiped = "";
+    return;
+  }
+  showMsgMenu(messageId);
+}
+
+function attachSwipeReplyHandlers(myVid) {
+  document.querySelectorAll("#chat-messages .bubble-wrap").forEach((wrap) => {
+    const bubble = wrap.querySelector(".bubble");
+    const messageId = wrap.getAttribute("data-id");
+    if (!bubble || !messageId) return;
+    let startX = 0;
+    let startY = 0;
+    let swiping = false;
+
+    bubble.addEventListener("touchstart", (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      swiping = false;
+      bubble.dataset.swiped = "";
+      bubble.style.transition = "";
+    }, { passive: true });
+
+    bubble.addEventListener("touchmove", (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      const horizontal = Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      if (!horizontal && !swiping) return;
+      swiping = true;
+      bubble.dataset.swiped = "1";
+      bubble.style.transition = "none";
+      bubble.style.transform = `translateX(${Math.max(-24, Math.min(24, dx * 0.22))}px)`;
+      event.preventDefault();
+    }, { passive: false });
+
+    bubble.addEventListener("touchend", (event) => {
+      const touch = event.changedTouches?.[0];
+      const dx = touch ? touch.clientX - startX : 0;
+      const dy = touch ? touch.clientY - startY : 0;
+      bubble.style.transition = "transform 120ms ease";
+      bubble.style.transform = "";
+      if (swiping && Math.abs(dx) >= 34 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        const message = currentChatMessages.find((item) => item.id === messageId);
+        if (message) setReplyFromMessage(message, Utils.isOwnMessage(message, myVid));
+      }
+      setTimeout(() => { bubble.dataset.swiped = ""; }, 180);
+      swiping = false;
+    }, { passive: true });
+
+    bubble.addEventListener("touchcancel", () => {
+      bubble.style.transition = "transform 120ms ease";
+      bubble.style.transform = "";
+      bubble.dataset.swiped = "";
+      swiping = false;
+    }, { passive: true });
+  });
 }
 
 function isCallHistoryMessage(message) {

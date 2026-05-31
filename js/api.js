@@ -128,6 +128,27 @@ async function previewFunction(name, body) {
   if (name === "get-group-typing") return { typing: true, typing_name: "Rahul" };
   if (name === "touch-last-seen" || name === "set-offline" || name === "set-chat-typing" || name === "set-group-typing" || name === "mark-seen") return { ok: true };
   if (name === "list-groups") return { groups: [{ id: "preview-group-1", name: "REACH Team", memberCount: 3 }] };
+  if (name === "create-group") {
+    const group = {
+      id: `preview-group-${Date.now()}`,
+      group_id: `preview-group-${Date.now()}`,
+      name: body.name || "New Group",
+      member_count: (body.member_vids || []).length + 1,
+      last_message: "Group created",
+      last_message_at: new Date().toISOString(),
+    };
+    return { group, groups: [group] };
+  }
+  if (name === "get-group-info") return {
+    group_id: body.group_id,
+    name: "REACH Team",
+    created_by: "12345678",
+    members: [
+      { member_vid: "12345678", display_name: "Rahul", avatar_id: 1, role: "admin", admin_rank: 0, joined_at: new Date().toISOString() },
+      { member_vid: "87654321", display_name: "Rahul Friend", avatar_id: 2, role: "member", admin_rank: null, joined_at: new Date().toISOString() },
+    ],
+  };
+  if (["add-group-member", "remove-group-member", "set-group-member-admin", "leave-group", "delete-group", "update-group-name"].includes(name)) return { ok: true };
   if (name === "list-group-messages") return { messages: [
     { id: "gm1", groupId: body.group_id, senderVid: "87654321", content: "Group messages are visible here.", sentAt: new Date(Date.now() - 600000).toISOString() },
     { id: "gm2", groupId: body.group_id, senderVid: "12345678", content: "Management stays in the Android app.", sentAt: new Date(Date.now() - 300000).toISOString() },
@@ -229,12 +250,19 @@ const Api = {
   sendSupportIssue: (sessionToken, content) => callFunction("send-support-issue", { session_token: sessionToken, content }),
 
   listGroups: (sessionToken) => callFunction("list-groups", { session_token: sessionToken }),
+  createGroup: (sessionToken, name, memberVids) => callFunction("create-group", { session_token: sessionToken, name, member_vids: memberVids }),
   listGroupMessages: (sessionToken, groupId) => callFunction("list-group-messages", { session_token: sessionToken, group_id: groupId }),
   sendGroupMessage: (sessionToken, groupId, content) => {
     if (String(content || "").length > MAX_TEXT_MESSAGE_LENGTH) throw new Error("Message is too long");
     return callFunction("send-group-message", { session_token: sessionToken, group_id: groupId, content_type: "text", content });
   },
   getGroupInfo: (sessionToken, groupId) => callFunction("get-group-info", { session_token: sessionToken, group_id: groupId }),
+  updateGroupName: (sessionToken, groupId, name) => callFunction("update-group-name", { session_token: sessionToken, group_id: groupId, name }),
+  addGroupMember: (sessionToken, groupId, memberVid) => callFunction("add-group-member", { session_token: sessionToken, group_id: groupId, member_vid: memberVid }),
+  removeGroupMember: (sessionToken, groupId, memberVid) => callFunction("remove-group-member", { session_token: sessionToken, group_id: groupId, member_vid: memberVid }),
+  setGroupMemberAdmin: (sessionToken, groupId, memberVid) => callFunction("set-group-member-admin", { session_token: sessionToken, group_id: groupId, member_vid: memberVid }),
+  leaveGroup: (sessionToken, groupId) => callFunction("leave-group", { session_token: sessionToken, group_id: groupId }),
+  deleteGroup: (sessionToken, groupId) => callFunction("delete-group", { session_token: sessionToken, group_id: groupId }),
 
   getContactPresence: (sessionToken, contactVid) => callFunction("get-contact-presence", { session_token: sessionToken, target_vid: contactVid, contact_vid: contactVid }),
   touchLastSeen: (sessionToken) => callFunction("touch-last-seen", { session_token: sessionToken }),

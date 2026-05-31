@@ -38,6 +38,7 @@ const Router = {
     requests: () => Screen.requests(),
     contacts: () => Screen.contacts(),
     groups: () => Screen.groups(),
+    "create-group": () => Screen.createGroup(),
     group: (params) => Screen.group(params.id, params.name),
     profile: () => Screen.profile(),
     settings: () => Screen.settings(),

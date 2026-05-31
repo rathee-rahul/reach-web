@@ -15,7 +15,7 @@ Screen.chats = async function() {
       <div class="header">
         <div class="app-brand"><b>REACH</b><span>Chats</span></div>
         <button class="vid-chip" onclick="copyVid()" title="Copy REACH ID">#${Utils.escape(vid)}</button>
-        <button class="header-icon-btn" onclick="Screen.createGroup()" title="Create group">${Icon("group", 21)}</button>
+        <button class="header-icon-btn" onclick="go('create-group')" title="Create group">${Icon("group", 21)}</button>
         <button class="header-icon-btn primary" onclick="Screen.addContact('chats')" title="Add REACH ID">${Icon("plus")}</button>
       </div>
       <div class="dl-banner">

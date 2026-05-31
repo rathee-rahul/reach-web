@@ -23,7 +23,7 @@ Screen.groups = async function() {
       <div class="header">
         <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
         <span class="header-title">Groups</span>
-        <button class="header-icon-btn primary" onclick="Screen.createGroup()" title="New group">${Icon("plus")}</button>
+        <button class="header-icon-btn primary" onclick="go('create-group')" title="New group">${Icon("plus")}</button>
       </div>
       <div class="scroll" id="groups-list">
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading...</div>
@@ -40,7 +40,7 @@ Screen.groups = async function() {
         <div class="empty-card chat-empty-action">
           <b>No groups yet</b>
           <span>Create a group from your contacts.</span>
-          <button class="reach-primary add-contact-cta" onclick="Screen.createGroup()">${Icon("plus", 18)}<span>Create Group</span></button>
+          <button class="reach-primary add-contact-cta" onclick="go('create-group')">${Icon("plus", 18)}<span>Create Group</span></button>
         </div>`;
       return;
     }

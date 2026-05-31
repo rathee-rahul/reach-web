@@ -4,6 +4,7 @@ let groupTypingPollTimer = null;
 let currentGroupMessages = [];
 let currentGroupId = "";
 let currentGroupNameMap = {};
+let groupPendingReply = null;
 
 window.addEventListener("hashchange", () => {
   clearInterval(groupRefreshTimer);
@@ -20,6 +21,7 @@ Screen.groups = async function() {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
+        <button class="plain-icon-btn" onclick="go('chats')" title="Back">${Icon("back")}</button>
         <span class="header-title">Groups</span>
         <button class="header-icon-btn primary" onclick="Screen.createGroup()" title="New group">${Icon("plus")}</button>
       </div>
@@ -49,7 +51,7 @@ Screen.groups = async function() {
       const latest = group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`;
       return `
         <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
-          <div class="group-avatar">G</div>
+          <div class="group-avatar">${Icon("group", 22)}</div>
           <div class="row-info">
             <div class="row-name">${Utils.escape(name)}</div>
             <div class="row-sub">${Utils.escape(latest)}</div>
@@ -64,6 +66,7 @@ Screen.groups = async function() {
 
 Screen.group = async function(groupId, groupName) {
   currentGroupId = groupId;
+  groupPendingReply = null;
   const groupArg = Utils.jsString(groupId);
   clearInterval(groupRefreshTimer);
   clearTimeout(groupTypingStopTimer);
@@ -71,7 +74,7 @@ Screen.group = async function(groupId, groupName) {
   document.getElementById("app").innerHTML = `
     <div class="screen">
       <div class="header">
-        <button class="plain-icon-btn" onclick="go('groups')" title="Back">${Icon("back")}</button>
+        <button class="chat-back-btn" onclick="go('chats')" title="Back">${Icon("back", 28)}</button>
         <div style="flex:1;min-width:0;" onclick="showGroupInfo(${groupArg})">
           <div style="font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${Utils.escape(groupName || "Group")}</div>
         </div>
@@ -81,6 +84,7 @@ Screen.group = async function(groupId, groupName) {
         <div style="text-align:center;padding:40px;color:var(--muted);">Loading group...</div>
       </div>
       <div id="group-typing-label">typing...</div>
+      <div id="group-reply-preview"></div>
       <div class="chat-input-bar">
         <input type="text" id="group-msg-input" maxlength="4000" placeholder="Message..." oninput="handleGroupTyping(${groupArg})" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendGroupMsg(${groupArg});}">
         <button class="send-btn" onclick="sendGroupMsg(${groupArg})" title="Send">${Icon("send", 18)}</button>
@@ -215,10 +219,10 @@ function renderGroupInfoSheet(info) {
       <div class="action-title">${Utils.escape(name)}</div>
       <div class="group-info-meta">Group · ${members.length} member${members.length === 1 ? "" : "s"}</div>
       <div class="group-info-actions">
-        ${admin ? `<button onclick="editWebGroupName(${Utils.jsString(groupId)}, ${Utils.jsString(name)})">Edit Name</button>` : ""}
-        ${admin ? `<button onclick="showAddGroupMemberSheet(${Utils.jsString(groupId)})">Add Member</button>` : ""}
-        ${ownerAdmin ? `<button class="danger" onclick="deleteWebGroup(${Utils.jsString(groupId)})">Delete Group</button>` : ""}
-        <button class="danger" onclick="leaveWebGroup(${Utils.jsString(groupId)})">Leave Group</button>
+        ${admin ? `<button onclick="editWebGroupName(${Utils.jsString(groupId)}, ${Utils.jsString(name)})">${Icon("edit", 17)}<span>Edit Name</span></button>` : ""}
+        ${admin ? `<button onclick="showAddGroupMemberSheet(${Utils.jsString(groupId)})">${Icon("plus", 17)}<span>Add Member</span></button>` : ""}
+        ${ownerAdmin ? `<button class="danger" onclick="deleteWebGroup(${Utils.jsString(groupId)})">${Icon("block", 17)}<span>Delete Group</span></button>` : ""}
+        <button class="danger leave" onclick="leaveWebGroup(${Utils.jsString(groupId)})">${Icon("back", 17)}<span>Leave Group</span></button>
       </div>
       <div class="section-title">Members</div>
       <div class="group-info-members">
@@ -419,8 +423,8 @@ function renderGroupMessages(messages) {
     const reply = typeof parseReplyPayload === "function" ? parseReplyPayload(message.content) : { hasReply: false };
     const body = typeof displayMessageContent === "function" ? displayMessageContent(message.content) : message.content;
     html += `
-      <div class="bubble-wrap ${isOut ? "out" : "in"}">
-        <div class="bubble ${isOut ? "out" : "in"}">
+      <div class="bubble-wrap ${isOut ? "out" : "in"}" data-group-message-id="${Utils.escape(message.id)}">
+        <div class="bubble ${isOut ? "out" : "in"}" onclick="handleGroupBubbleTap(event, ${Utils.jsString(message.id)})">
           ${!isOut ? `<div class="group-sender">${Utils.escape(sender)}</div>` : ""}
           ${reply.hasReply ? `
             <div class="reply-quote ${isOut ? "out" : "in"}">
@@ -433,14 +437,18 @@ function renderGroupMessages(messages) {
       </div>`;
   });
   el.innerHTML = html;
+  attachGroupSwipeReplyHandlers(myVid);
 }
 
 async function sendGroupMsg(groupId) {
   const input = document.getElementById("group-msg-input");
   const text = input?.value.trim() || "";
   if (!text) return;
-  if (text.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
+  const payload = groupOutgoingMessagePayload(text);
+  if (payload.length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
   input.value = "";
+  groupPendingReply = null;
+  renderGroupReplyPreview();
   clearTimeout(groupTypingStopTimer);
   Api.setGroupTyping(Auth.getToken(), groupId, false).catch(() => {});
   const tempId = `temp-group-${Date.now()}`;
@@ -450,7 +458,7 @@ async function sendGroupMsg(groupId) {
     senderVid: Auth.getVid(),
     isMine: true,
     contentType: "text",
-    content: text,
+    content: payload,
     sentAt: new Date().toISOString(),
     localOnly: true,
   });
@@ -458,7 +466,7 @@ async function sendGroupMsg(groupId) {
   renderGroupMessages(currentGroupMessages);
   scrollGroupToBottom();
   try {
-    const data = await Api.sendGroupMessage(Auth.getToken(), groupId, text);
+    const data = await Api.sendGroupMessage(Auth.getToken(), groupId, payload);
     const savedMessage = Utils.normalizeMessage(data.message || data.messages?.[0] || data);
     if (savedMessage.senderVid) Auth.reconcileVid(savedMessage.senderVid);
     currentGroupMessages = currentGroupMessages.filter((message) => message.id !== tempId);
@@ -470,6 +478,150 @@ async function sendGroupMsg(groupId) {
     ));
     renderGroupMessages(currentGroupMessages);
     scrollGroupToBottom();
+  }
+}
+
+function handleGroupBubbleTap(event, messageId) {
+  const bubble = event?.currentTarget;
+  if (bubble?.dataset?.swiped === "1") {
+    bubble.dataset.swiped = "";
+    return;
+  }
+  showGroupMsgMenu(messageId);
+}
+
+function attachGroupSwipeReplyHandlers(myVid) {
+  document.querySelectorAll("#group-messages [data-group-message-id]").forEach((wrap) => {
+    const bubble = wrap.querySelector(".bubble");
+    const messageId = wrap.getAttribute("data-group-message-id");
+    if (!bubble || !messageId) return;
+    let startX = 0;
+    let startY = 0;
+    let swiping = false;
+
+    bubble.addEventListener("touchstart", (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      swiping = false;
+      bubble.dataset.swiped = "";
+      bubble.style.transition = "";
+    }, { passive: true });
+
+    bubble.addEventListener("touchmove", (event) => {
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      const horizontal = Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      if (!horizontal && !swiping) return;
+      swiping = true;
+      bubble.dataset.swiped = "1";
+      bubble.style.transition = "none";
+      bubble.style.transform = `translateX(${Math.max(-24, Math.min(24, dx * 0.22))}px)`;
+      event.preventDefault();
+    }, { passive: false });
+
+    bubble.addEventListener("touchend", (event) => {
+      const touch = event.changedTouches?.[0];
+      const dx = touch ? touch.clientX - startX : 0;
+      const dy = touch ? touch.clientY - startY : 0;
+      bubble.style.transition = "transform 120ms ease";
+      bubble.style.transform = "";
+      if (swiping && Math.abs(dx) >= 34 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+        const message = currentGroupMessages.find((item) => item.id === messageId);
+        if (message) setGroupReplyFromMessage(message, Utils.isOwnMessage(message, myVid));
+      }
+      setTimeout(() => { bubble.dataset.swiped = ""; }, 180);
+      swiping = false;
+    }, { passive: true });
+
+    bubble.addEventListener("touchcancel", () => {
+      bubble.style.transition = "transform 120ms ease";
+      bubble.style.transform = "";
+      bubble.dataset.swiped = "";
+      swiping = false;
+    }, { passive: true });
+  });
+}
+
+function showGroupMsgMenu(messageId) {
+  const message = currentGroupMessages.find((item) => item.id === messageId);
+  if (!message) return;
+  const mine = Utils.isOwnMessage(message, Auth.getVid());
+  const body = typeof displayMessageContent === "function" ? displayMessageContent(message.content) : message.content;
+  const options = mine
+    ? [
+        ["Reply", () => setGroupReplyFromMessage(message, mine)],
+        ["Copy", () => copyMessage(body)],
+        ["Edit", () => editGroupMsg(message.id, body, currentGroupId)],
+        ["Delete for Everyone", () => deleteGroupMsg(message.id, "everyone", currentGroupId)],
+        ["Delete for Me", () => deleteGroupMsg(message.id, "me", currentGroupId)],
+      ]
+    : [
+        ["Reply", () => setGroupReplyFromMessage(message, mine)],
+        ["Copy", () => copyMessage(body)],
+        ["Delete for Me", () => deleteGroupMsg(message.id, "me", currentGroupId)],
+      ];
+  showActionSheet("Message options", options);
+}
+
+function setGroupReplyFromMessage(message, mine) {
+  const body = typeof displayMessageContent === "function" ? displayMessageContent(message.content) : message.content;
+  groupPendingReply = {
+    name: safeReplyPart(mine ? (Auth.getName() || "You") : (message.senderName || currentGroupNameMap[Utils.normalizeVid(message.senderVid)] || "Message")),
+    preview: safeReplyPart(body),
+  };
+  renderGroupReplyPreview();
+  document.getElementById("group-msg-input")?.focus();
+}
+
+function renderGroupReplyPreview() {
+  const el = document.getElementById("group-reply-preview");
+  if (!el) return;
+  if (!groupPendingReply) {
+    el.innerHTML = "";
+    el.className = "";
+    return;
+  }
+  el.className = "reply-preview-bar";
+  el.innerHTML = `
+    <div>
+      <b>${Utils.escape(groupPendingReply.name || "Message")}</b>
+      <span>${Utils.escape(groupPendingReply.preview || "Message")}</span>
+    </div>
+    <button onclick="clearGroupReply()" title="Cancel reply">${Icon("back", 16)}</button>`;
+}
+
+function clearGroupReply() {
+  groupPendingReply = null;
+  renderGroupReplyPreview();
+}
+
+function groupOutgoingMessagePayload(text) {
+  if (!groupPendingReply || typeof encodeReplyPart !== "function") return String(text || "").trim();
+  return `${REPLY_MARKER}${encodeReplyPart(groupPendingReply.name)}|${encodeReplyPart(groupPendingReply.preview)}\n${String(text || "").trim()}`;
+}
+
+async function editGroupMsg(messageId, oldContent, groupId) {
+  const content = window.prompt("Edit message", oldContent);
+  if (!content || content.trim() === oldContent) return;
+  if (content.trim().length > MAX_TEXT_MESSAGE_LENGTH) return showToast("Message is too long");
+  try {
+    await Api.editMessage(Auth.getToken(), messageId, content.trim());
+    await loadGroupThread(groupId, { scroll: false });
+  } catch (error) {
+    showToast(error.message || "Edit failed");
+  }
+}
+
+async function deleteGroupMsg(messageId, scope, groupId) {
+  try {
+    await Api.deleteMessage(Auth.getToken(), messageId, scope);
+    await loadGroupThread(groupId, { scroll: false });
+  } catch (error) {
+    showToast(error.message || "Delete failed");
   }
 }
 

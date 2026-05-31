@@ -15,7 +15,7 @@ Screen.chats = async function() {
       <div class="header">
         <div class="app-brand"><b>REACH</b><span>Chats</span></div>
         <button class="vid-chip" onclick="copyVid()" title="Copy REACH ID">#${Utils.escape(vid)}</button>
-        <button class="header-icon-btn" onclick="Screen.createGroup()" title="Create group">G+</button>
+        <button class="header-icon-btn" onclick="Screen.createGroup()" title="Create group">${Icon("group", 21)}</button>
         <button class="header-icon-btn primary" onclick="Screen.addContact('chats')" title="Add REACH ID">${Icon("plus")}</button>
       </div>
       <div class="dl-banner">
@@ -115,7 +115,7 @@ function renderChatList(contacts, groups = []) {
       const unread = Number(group.unread_count || group.unreadCount || 0);
       return `
         <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
-          <div class="group-avatar">G</div>
+          <div class="group-avatar">${Icon("group", 22)}</div>
           <div class="row-info">
             <div class="row-name">${Utils.escape(name)}</div>
             <div class="row-sub ${typingName !== undefined ? "typing" : ""}">${Utils.escape(latest)}</div>

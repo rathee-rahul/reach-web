@@ -1273,9 +1273,18 @@ button, a, [onclick] { touch-action: manipulation; }
   background: var(--surface-2);
   color: var(--ink);
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 }
 .group-info-actions button.danger {
   color: var(--red);
+}
+.group-info-actions button.leave {
+  grid-column: 1 / -1;
+  background: #FFF1F1;
+  border-color: #F4C6C6;
 }
 .group-info-members {
   padding-bottom: 8px;

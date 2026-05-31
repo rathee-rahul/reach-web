@@ -1,6 +1,7 @@
 let chatListTimer = null;
 let chatListTypingById = {};
 let groupListTypingById = {};
+let chatRowLongPressTimer = null;
 
 window.addEventListener("hashchange", () => {
   clearInterval(chatListTimer);
@@ -79,7 +80,8 @@ async function loadChatListFromServer(options = {}) {
 function renderChatList(contacts, groups = []) {
   const el = document.getElementById("chat-list");
   if (!el) return;
-  if (!contacts.length && !groups.length) {
+  const visibleContacts = (contacts || []).filter((contact) => !isWebChatHidden(contact.chat_id || contact.chatId || ""));
+  if (!visibleContacts.length && !groups.length) {
     el.innerHTML = `
       <div class="empty-card chat-empty-action">
         <b>No chats yet</b>
@@ -88,7 +90,7 @@ function renderChatList(contacts, groups = []) {
       </div>`;
     return;
   }
-  const entries = contacts.map((contact) => ({
+  const entries = visibleContacts.map((contact) => ({
     type: "contact",
     value: contact,
     time: contact.last_message_at || contact.lastMessageAt || "",
@@ -132,12 +134,16 @@ function renderChatList(contacts, groups = []) {
     const latest = typing ? "typing..." : (contact.last_message || contact.lastMessage || "Tap to open chat");
     const time = contact.last_message_at || contact.lastMessageAt || "";
     const unread = Number(contact.unread_count || contact.unreadCount || 0);
+    const preview = chatPreviewAfterClear(chatId, latest, time);
+    const openTarget = `chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}`;
     return `
-      <div class="row" onclick="go('chat/${encodeURIComponent(chatId)}/${encodeURIComponent(name)}/${encodeURIComponent(vid)}')">
-        ${Avatar(name, avatar, 44, photo)}
+      <div class="row" data-contact-chat-id="${Utils.escape(chatId)}" data-contact-vid="${Utils.escape(vid)}" onclick="openChatRow('${Utils.escape(openTarget)}')">
+        <button class="chat-row-avatar" onclick="event.stopPropagation(); showAvatarZoom(${Utils.jsString(name)}, ${Utils.jsString(vid)}, ${Number(avatar) || 1}, ${Utils.jsString(photo)})" title="View profile photo">
+          ${Avatar(name, avatar, 44, photo)}
+        </button>
         <div class="row-info">
           <div class="row-name">${Utils.escape(name)}</div>
-          <div class="row-sub ${typing ? "typing" : ""}">${Utils.escape(latest || "Tap to open chat")}</div>
+          <div class="row-sub ${typing ? "typing" : ""}">${Utils.escape(preview || "Connected on REACH")}</div>
         </div>
         <div class="row-meta">
           <span class="row-time">${Utils.chatRowTime(time)}</span>
@@ -145,6 +151,136 @@ function renderChatList(contacts, groups = []) {
         </div>
       </div>`;
   }).join("");
+  attachChatRowMenus();
+}
+
+function openChatRow(target) {
+  if (window._chatRowMenuJustOpened) return;
+  go(target);
+}
+
+function attachChatRowMenus() {
+  clearTimeout(chatRowLongPressTimer);
+  document.querySelectorAll("[data-contact-chat-id]").forEach((row) => {
+    row.oncontextmenu = (event) => {
+      event.preventDefault();
+      showContactChatActionsFromRow(row);
+    };
+    row.onpointerdown = (event) => {
+      if (event.target.closest(".chat-row-avatar")) return;
+      clearTimeout(chatRowLongPressTimer);
+      chatRowLongPressTimer = setTimeout(() => showContactChatActionsFromRow(row), 620);
+    };
+    row.onpointermove = () => clearTimeout(chatRowLongPressTimer);
+    row.onpointerup = () => clearTimeout(chatRowLongPressTimer);
+    row.onpointercancel = () => clearTimeout(chatRowLongPressTimer);
+  });
+}
+
+function showContactChatActionsFromRow(row) {
+  const chatId = row.dataset.contactChatId || "";
+  const contact = (window._allChatContacts || []).find((item) => (item.chat_id || item.chatId || "") === chatId);
+  if (!contact) return;
+  window._chatRowMenuJustOpened = true;
+  setTimeout(() => { window._chatRowMenuJustOpened = false; }, 700);
+  showContactChatActions(contact);
+}
+
+function showContactChatActions(contact) {
+  const chatId = contact.chat_id || contact.chatId || "";
+  const vid = contact.vid || contact.contact_vid || contact.contactVid || "";
+  const name = contact.display_name || contact.displayName || "REACH User";
+  showActionSheet(name, [
+    ["Clear chat", () => clearWebChat(chatId)],
+    ["Delete", () => deleteWebChat(chatId)],
+    ["Block", () => blockWebChat(chatId, vid)],
+  ]);
+}
+
+async function clearWebChat(chatId) {
+  if (!chatId) return;
+  setWebChatClearedAt(chatId, Date.now());
+  await LocalCache.clearMessages(Auth.getVid(), chatId).catch(() => {});
+  if (currentChatId === chatId && Array.isArray(currentChatMessages)) {
+    currentChatMessages = [];
+    if (typeof renderMessages === "function") renderMessages([], Auth.getVid());
+  }
+  showToast("Chat cleared");
+  filterChats(document.getElementById("chat-search")?.value || "");
+}
+
+async function deleteWebChat(chatId) {
+  if (!chatId) return;
+  await clearWebChat(chatId);
+  setWebChatHidden(chatId, true);
+  showToast("Chat deleted");
+  filterChats(document.getElementById("chat-search")?.value || "");
+}
+
+async function blockWebChat(chatId, vid) {
+  const targetVid = Utils.normalizeVid(vid);
+  if (!targetVid) return showToast("REACH ID unavailable");
+  try {
+    await Api.blockUser(Auth.getToken(), targetVid, "silent");
+    setWebChatHidden(chatId, true);
+    showToast("User blocked");
+    filterChats(document.getElementById("chat-search")?.value || "");
+  } catch (error) {
+    showToast(error.message || "Block failed");
+  }
+}
+
+function webChatStateKey(name) {
+  return `reach_web_${name}_${Auth.getVid() || "anon"}`;
+}
+
+function readWebChatJson(name, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(webChatStateKey(name)) || JSON.stringify(fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function writeWebChatJson(name, value) {
+  localStorage.setItem(webChatStateKey(name), JSON.stringify(value));
+}
+
+function getWebChatClearedAt(chatId) {
+  return Number(readWebChatJson("cleared_chats", {})[chatId] || 0);
+}
+
+function setWebChatClearedAt(chatId, value) {
+  const cleared = readWebChatJson("cleared_chats", {});
+  cleared[chatId] = value;
+  writeWebChatJson("cleared_chats", cleared);
+}
+
+function isWebChatHidden(chatId) {
+  return readWebChatJson("hidden_chats", []).includes(chatId);
+}
+
+function setWebChatHidden(chatId, hidden) {
+  const current = new Set(readWebChatJson("hidden_chats", []));
+  if (hidden) current.add(chatId);
+  else current.delete(chatId);
+  writeWebChatJson("hidden_chats", Array.from(current));
+}
+
+function isAfterWebChatClear(chatId, timestamp) {
+  const clearAt = getWebChatClearedAt(chatId);
+  if (!clearAt) return true;
+  const sentAt = new Date(timestamp || 0).getTime();
+  return Number.isFinite(sentAt) && sentAt > clearAt;
+}
+
+function chatPreviewAfterClear(chatId, latest, timestamp) {
+  if (getWebChatClearedAt(chatId) && !isAfterWebChatClear(chatId, timestamp)) return "Chat cleared";
+  return latest || "Connected on REACH";
+}
+
+function visibleWebChatMessages(chatId, messages) {
+  return (messages || []).filter((message) => isAfterWebChatClear(chatId, message.sentAt));
 }
 
 async function loadChatListTypingStatuses(contacts, groups) {

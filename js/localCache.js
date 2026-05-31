@@ -83,6 +83,10 @@ const LocalCache = (() => {
       } catch {}
     },
 
+    async clearMessages(ownerVid, chatId) {
+      return this.saveMessages(ownerVid, chatId, []);
+    },
+
     async getChatList(ownerVid) {
       try {
         const record = await getRecord(LIST_STORE, key([ownerVid, "chats"]));

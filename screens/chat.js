@@ -28,6 +28,7 @@ window.addEventListener("hashchange", () => {
 
 Screen.chat = async function(chatId, contactName, contactVid) {
   currentChatId = chatId;
+  if (typeof setWebChatHidden === "function") setWebChatHidden(chatId, false);
   pendingReply = null;
   const chatArg = Utils.jsString(chatId);
   const contactVidArg = Utils.jsString(contactVid || "");
@@ -49,11 +50,13 @@ Screen.chat = async function(chatId, contactName, contactVid) {
     <div class="screen">
       <div class="header">
         <button class="chat-back-btn" onclick="go('chats')" title="Back">${Icon("back", 28)}</button>
-        ${Avatar(headerName, headerAvatar, 36, headerPhoto)}
-        <div class="chat-title-area">
+        <button class="chat-row-avatar" onclick="showAvatarZoom(${headerNameArg}, ${contactVidArg}, ${Number(headerAvatar) || 1}, ${headerPhotoArg})" title="View profile photo">
+          ${Avatar(headerName, headerAvatar, 36, headerPhoto)}
+        </button>
+        <div class="chat-title-area" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">
           <div class="chat-title-name">${Utils.escape(headerName)}</div>
           <div class="chat-subline">
-            <button class="chat-contact-id" onclick="copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
+            <button class="chat-contact-id" onclick="event.stopPropagation(); copyContactVid(${contactVidArg})" title="Copy REACH ID">${contactIdLabel}</button>
             <span id="presence-label"></span>
           </div>
         </div>
@@ -114,7 +117,7 @@ async function loadMessages(chatId, options = {}) {
   let renderedCache = false;
   const previousLatestId = latestMessageId(currentChatMessages);
   if (options.showCacheFirst) {
-    const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
+    const cachedMessages = visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId));
     if (cachedMessages.length) {
       currentChatMessages = cachedMessages;
       renderMessages(currentChatMessages, ownerVid);
@@ -124,7 +127,7 @@ async function loadMessages(chatId, options = {}) {
   }
   try {
     const data = await Api.listMessages(Auth.getToken(), chatId);
-    currentChatMessages = preserveOutgoingMessages((data.messages || data || []).map(Utils.normalizeMessage), currentChatMessages, ownerVid);
+    currentChatMessages = visibleWebChatMessages(chatId, preserveOutgoingMessages((data.messages || data || []).map(Utils.normalizeMessage), currentChatMessages, ownerVid));
     const reconciledVid = reconcileVidFromMessages(currentChatMessages, ownerVid);
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
@@ -137,7 +140,7 @@ async function loadMessages(chatId, options = {}) {
     if (renderedCache) {
       if (!options.silent) showToast("Showing saved messages");
     } else {
-      const cachedMessages = await LocalCache.getMessages(ownerVid, chatId);
+      const cachedMessages = visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId));
       if (cachedMessages.length) {
         currentChatMessages = cachedMessages;
         renderMessages(currentChatMessages, ownerVid);
@@ -674,7 +677,7 @@ function copyMessage(content) {
 function copyContactVid(contactVid) {
   const vid = Utils.normalizeVid(contactVid);
   if (!vid) return showToast("REACH ID unavailable");
-  navigator.clipboard?.writeText(vid).then(() => showToast("REACH ID copied")).catch(() => showToast(vid));
+  navigator.clipboard?.writeText(vid).then(() => showToast("VID copied")).catch(() => showToast(vid));
 }
 
 function showMessageInfo(message) {

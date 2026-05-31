@@ -383,6 +383,7 @@ async function loadGroupThread(groupId, options = {}) {
     const changed = groupMessagesSnapshot(merged) !== groupMessagesSnapshot(currentGroupMessages);
     currentGroupMessages = merged;
     renderGroupMessages(currentGroupMessages);
+    renderGroupReplyPreview();
     if (options.scroll !== false || changed) scrollGroupToBottom();
     return changed;
   } catch (error) {
@@ -495,6 +496,10 @@ function attachGroupSwipeReplyHandlers(myVid) {
     const bubble = wrap.querySelector(".bubble");
     const messageId = wrap.getAttribute("data-group-message-id");
     if (!bubble || !messageId) return;
+    wrap.onclick = (event) => {
+      if (event.target.closest(".bubble")) return;
+      handleGroupBubbleTap({ currentTarget: bubble }, messageId);
+    };
     let startX = 0;
     let startY = 0;
     let swiping = false;

@@ -32,6 +32,10 @@ const PreviewData = {
     { id: "m2", chatId: "preview-chat-1", senderVid: "12345678", contentType: "text", content: "Yes, web preview is open.", sentAt: new Date(Date.now() - 780000).toISOString(), deliveredAt: new Date(Date.now() - 760000).toISOString(), seenAt: new Date(Date.now() - 700000).toISOString() },
     { id: "m3", chatId: "preview-chat-1", senderVid: "87654321", contentType: "text", content: "Good. Make it exactly like app.", sentAt: new Date(Date.now() - 300000).toISOString() },
   ],
+  groupMessages: [
+    { id: "gm1", groupId: "preview-group-1", senderVid: "87654321", senderName: "Rahul", contentType: "text", content: "Group messages are visible here.", sentAt: new Date(Date.now() - 600000).toISOString() },
+    { id: "gm2", groupId: "preview-group-1", senderVid: "12345678", contentType: "text", content: "Management stays in the Android app.", sentAt: new Date(Date.now() - 300000).toISOString(), deliveredAt: new Date().toISOString() },
+  ],
 };
 
 async function callFunction(name, body) {
@@ -123,6 +127,19 @@ async function previewFunction(name, body) {
     });
     return { ok: true };
   }
+  if (name === "edit-message") {
+    const message = [...PreviewData.messages, ...PreviewData.groupMessages].find((item) => item.id === body.message_id);
+    if (message) {
+      message.content = body.content;
+      message.editedAt = new Date().toISOString();
+    }
+    return { ok: true };
+  }
+  if (name === "delete-message") {
+    const message = [...PreviewData.messages, ...PreviewData.groupMessages].find((item) => item.id === body.message_id);
+    if (message) message.deletedAt = new Date().toISOString();
+    return { ok: true };
+  }
   if (name === "get-contact-presence") return { online: true, visible: true, lastSeenAt: new Date().toISOString() };
   if (name === "get-chat-typing") return { typing: true, typing_vid: "87654321" };
   if (name === "get-group-typing") return { typing: true, typing_name: "Rahul" };
@@ -149,10 +166,22 @@ async function previewFunction(name, body) {
     ],
   };
   if (["add-group-member", "remove-group-member", "set-group-member-admin", "leave-group", "delete-group", "update-group-name"].includes(name)) return { ok: true };
-  if (name === "list-group-messages") return { messages: [
-    { id: "gm1", groupId: body.group_id, senderVid: "87654321", content: "Group messages are visible here.", sentAt: new Date(Date.now() - 600000).toISOString() },
-    { id: "gm2", groupId: body.group_id, senderVid: "12345678", content: "Management stays in the Android app.", sentAt: new Date(Date.now() - 300000).toISOString() },
-  ] };
+  if (name === "list-group-messages") {
+    return { messages: PreviewData.groupMessages.filter((message) => message.groupId === body.group_id || message.group_id === body.group_id) };
+  }
+  if (name === "send-group-message") {
+    const message = {
+      id: `preview-group-message-${Date.now()}`,
+      groupId: body.group_id,
+      senderVid: "12345678",
+      contentType: body.content_type || "text",
+      content: body.content,
+      sentAt: new Date().toISOString(),
+      deliveredAt: new Date().toISOString(),
+    };
+    PreviewData.groupMessages.push(message);
+    return { message };
+  }
   if (name === "get-privacy-settings") return { settings: { read_receipts_enabled: true, last_seen_enabled: true, notify_direct_messages: true } };
   if (name === "list-blocked-users") return { blocked: [{ vid: "99887766", displayName: "Blocked User", avatarId: 5 }] };
   if (name === "update-profile") return { user: { display_name: body.display_name } };

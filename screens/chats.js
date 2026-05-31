@@ -107,9 +107,10 @@ function renderChatList(contacts, groups = []) {
       const id = group.id || group.group_id || "";
       const memberCount = Number(group.member_count || group.memberCount || 0);
       const typingName = groupListTypingById[id];
+      const rawLatest = group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`;
       const latest = typingName !== undefined
         ? `${typingName || "Someone"} typing...`
-        : (group.last_message || group.lastMessage || `${memberCount} member${memberCount === 1 ? "" : "s"}`);
+        : chatListVisibleMessage(rawLatest);
       const unread = Number(group.unread_count || group.unreadCount || 0);
       return `
         <div class="row" onclick="go('group/${encodeURIComponent(id)}/${encodeURIComponent(name)}')">
@@ -131,7 +132,7 @@ function renderChatList(contacts, groups = []) {
     const avatar = contact.avatar_id || contact.avatarId || 1;
     const photo = contact.profile_photo || contact.profilePhoto || "";
     const typing = chatListTypingById[chatId] === true;
-    const latest = typing ? "typing..." : (contact.last_message || contact.lastMessage || "Tap to open chat");
+    const latest = typing ? "typing..." : chatListVisibleMessage(contact.last_message || contact.lastMessage || "Tap to open chat");
     const time = contact.last_message_at || contact.lastMessageAt || "";
     const unread = Number(contact.unread_count || contact.unreadCount || 0);
     const preview = chatPreviewAfterClear(chatId, latest, time);
@@ -279,6 +280,13 @@ function chatPreviewAfterClear(chatId, latest, timestamp) {
   return latest || "Connected on REACH";
 }
 
+function chatListVisibleMessage(value) {
+  if (typeof displayMessageContent === "function") {
+    return displayMessageContent(value);
+  }
+  return String(value || "").replace(/^\[\[REACH_REPLY_V1\]\][^\n]*\n/, "");
+}
+
 function visibleWebChatMessages(chatId, messages) {
   return (messages || []).filter((message) => isAfterWebChatClear(chatId, message.sentAt));
 }
@@ -324,7 +332,7 @@ function filterChats(query) {
     ? window._allChatContacts.filter((contact) => {
         const name = (contact.display_name || contact.displayName || "").toLowerCase();
         const vid = String(contact.vid || contact.contact_vid || contact.contactVid || "");
-        const latest = String(contact.last_message || contact.lastMessage || "").toLowerCase();
+        const latest = chatListVisibleMessage(contact.last_message || contact.lastMessage || "").toLowerCase();
         return name.includes(q) || vid.includes(q) || latest.includes(q);
       })
     : window._allChatContacts;
@@ -332,7 +340,7 @@ function filterChats(query) {
   const filteredGroups = q
     ? groups.filter((group) => {
         const name = String(group.name || group.group_name || "").toLowerCase();
-        const latest = String(group.last_message || group.lastMessage || "").toLowerCase();
+        const latest = chatListVisibleMessage(group.last_message || group.lastMessage || "").toLowerCase();
         return name.includes(q) || latest.includes(q);
       })
     : groups;

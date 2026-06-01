@@ -236,6 +236,7 @@ const Api = {
       password,
       avatar_id: avatarId,
       device_fp: getWebFingerprint(),
+      platform: "web",
       recovery_email: recoveryEmail,
       google_id_token: googleIdToken,
       date_of_birth: dateOfBirth,

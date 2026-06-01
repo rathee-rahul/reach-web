@@ -303,6 +303,7 @@ async function doCreateAccount() {
   if (!dob) return showToast("Select a valid date of birth");
   if (!gender) return showToast("Choose gender or Prefer not to say");
   if (password.length < 8) return showToast("Password must be at least 8 characters");
+  if (!googleToken) return showToast("Continue with Google first");
   btn.disabled = true;
   btn.textContent = "Creating...";
   try {

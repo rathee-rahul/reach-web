@@ -117,7 +117,7 @@ async function loadMessages(chatId, options = {}) {
   let renderedCache = false;
   const previousLatestId = latestMessageId(currentChatMessages);
   if (options.showCacheFirst) {
-    const cachedMessages = visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId));
+    const cachedMessages = withoutLegacyCallHistoryMessages(visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId)));
     if (cachedMessages.length) {
       currentChatMessages = cachedMessages;
       renderMessages(currentChatMessages, ownerVid);
@@ -142,7 +142,7 @@ async function loadMessages(chatId, options = {}) {
     if (renderedCache) {
       if (!options.silent) showToast("Showing saved messages");
     } else {
-      const cachedMessages = visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId));
+      const cachedMessages = withoutLegacyCallHistoryMessages(visibleWebChatMessages(chatId, await LocalCache.getMessages(ownerVid, chatId)));
       if (cachedMessages.length) {
         currentChatMessages = cachedMessages;
         renderMessages(currentChatMessages, ownerVid);
@@ -335,7 +335,7 @@ async function mergeChatCallHistory(chatId, messages) {
   }
   if (!Array.isArray(callRows) || !callRows.length) return messages;
 
-  const regularMessages = messages.filter((message) => !isCallHistoryMessage(message));
+  const regularMessages = withoutLegacyCallHistoryMessages(messages);
   const callMessages = callRows
     .filter((row) => String(row.chat_id || row.chatId || "") === String(chatId))
     .map(callRecordToChatMessage)
@@ -343,6 +343,10 @@ async function mergeChatCallHistory(chatId, messages) {
 
   return [...regularMessages, ...callMessages]
     .sort((a, b) => String(a.sentAt || "").localeCompare(String(b.sentAt || "")));
+}
+
+function withoutLegacyCallHistoryMessages(messages) {
+  return (messages || []).filter((message) => !isLegacyCallHistoryMessage(message));
 }
 
 function callRecordToChatMessage(row) {
@@ -370,6 +374,10 @@ function callRecordToChatMessage(row) {
     callDirection: direction,
     callStatus: status,
   };
+}
+
+function isLegacyCallHistoryMessage(message) {
+  return isCallHistoryMessage(message) && !message?.callDirection;
 }
 
 function callHistoryStatusLabel(status) {

@@ -129,7 +129,7 @@ async function loadMessages(chatId, options = {}) {
     const data = await Api.listMessages(Auth.getToken(), chatId);
     const freshMessages = (data.messages || data || []).map(Utils.normalizeMessage);
     const messagesWithCalls = await mergeChatCallHistory(chatId, freshMessages);
-    currentChatMessages = visibleWebChatMessages(chatId, preserveOutgoingMessages(messagesWithCalls, currentChatMessages, ownerVid));
+    currentChatMessages = visibleWebChatTimeline(chatId, preserveOutgoingMessages(messagesWithCalls, currentChatMessages, ownerVid));
     const reconciledVid = reconcileVidFromMessages(currentChatMessages, ownerVid);
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
@@ -347,6 +347,15 @@ async function mergeChatCallHistory(chatId, messages) {
 
 function withoutLegacyCallHistoryMessages(messages) {
   return (messages || []).filter((message) => !isLegacyCallHistoryMessage(message));
+}
+
+function visibleWebChatTimeline(chatId, messages) {
+  return (messages || []).filter((message) => {
+    if (message?.callDirection) return true;
+    return typeof isAfterWebChatClear === "function"
+      ? isAfterWebChatClear(chatId, message.sentAt)
+      : true;
+  });
 }
 
 function callRecordToChatMessage(row) {

@@ -127,7 +127,9 @@ async function loadMessages(chatId, options = {}) {
   }
   try {
     const data = await Api.listMessages(Auth.getToken(), chatId);
-    currentChatMessages = visibleWebChatMessages(chatId, preserveOutgoingMessages((data.messages || data || []).map(Utils.normalizeMessage), currentChatMessages, ownerVid));
+    const freshMessages = (data.messages || data || []).map(Utils.normalizeMessage);
+    const messagesWithCalls = await mergeChatCallHistory(chatId, freshMessages);
+    currentChatMessages = visibleWebChatMessages(chatId, preserveOutgoingMessages(messagesWithCalls, currentChatMessages, ownerVid));
     const reconciledVid = reconcileVidFromMessages(currentChatMessages, ownerVid);
     if (reconciledVid && reconciledVid !== ownerVid) ownerVid = reconciledVid;
     await LocalCache.saveMessages(ownerVid, chatId, currentChatMessages);
@@ -204,10 +206,11 @@ function renderMessages(messages, myVid) {
       html += `<div class="date-pill"><span>${label}</span></div>`;
       lastDate = label;
     }
-    const isOut = Utils.isOwnMessage(message, myVid);
+    const isCall = isCallHistoryMessage(message);
+    const isOut = isCall ? isOutgoingCallHistoryMessage(message, myVid) : Utils.isOwnMessage(message, myVid);
     const meta = `${Utils.formatTime(message.sentAt)} ${isOut ? Utils.statusIcon(message, myVid) : ""}`;
     const reply = parseReplyPayload(message.content);
-    const body = isCallHistoryMessage(message) ? callHistoryContentForViewer(message.content, isOut) : displayMessageContent(message.content);
+    const body = isCall ? callHistoryContentForViewer(message, isOut) : displayMessageContent(message.content);
     html += `
       <div class="bubble-wrap ${isOut ? "out" : "in"}" data-id="${Utils.escape(message.id)}">
         <div class="bubble ${isOut ? "out" : "in"}" onclick="handleBubbleTap(event, ${Utils.jsString(message.id)})">
@@ -291,6 +294,7 @@ function attachSwipeReplyHandlers(myVid) {
 }
 
 function isCallHistoryMessage(message) {
+  if (message?.callDirection) return true;
   if (message?.contentType !== "system") return false;
   const content = String(message.content || "");
   return content.startsWith("Voice call")
@@ -298,8 +302,18 @@ function isCallHistoryMessage(message) {
     || content.startsWith("Outgoing voice call");
 }
 
-function callHistoryContentForViewer(content, mine) {
-  const value = String(content || "Voice call");
+function isOutgoingCallHistoryMessage(message, myVid) {
+  const direction = String(message?.callDirection || "").toLowerCase();
+  if (direction) return direction === "outgoing";
+  const value = String(message?.content || "");
+  if (value.startsWith("Outgoing voice call")) return true;
+  if (value.startsWith("Incoming voice call")) return false;
+  return Utils.isOwnMessage(message, myVid);
+}
+
+function callHistoryContentForViewer(message, mine) {
+  const value = String(message?.content || "Voice call");
+  if (message?.callDirection) return value;
   if (value.startsWith("Voice call")) {
     return `${mine ? "Outgoing" : "Incoming"} voice call${value.slice("Voice call".length)}`;
   }
@@ -310,6 +324,74 @@ function callHistoryContentForViewer(content, mine) {
     return `Outgoing voice call${value.slice("Incoming voice call".length)}`;
   }
   return value;
+}
+
+async function mergeChatCallHistory(chatId, messages) {
+  let callRows = [];
+  try {
+    callRows = await Api.listVoiceCalls(Auth.getToken(), 100);
+  } catch {
+    return messages;
+  }
+  if (!Array.isArray(callRows) || !callRows.length) return messages;
+
+  const regularMessages = messages.filter((message) => !isCallHistoryMessage(message));
+  const callMessages = callRows
+    .filter((row) => String(row.chat_id || row.chatId || "") === String(chatId))
+    .map(callRecordToChatMessage)
+    .filter(Boolean);
+
+  return [...regularMessages, ...callMessages]
+    .sort((a, b) => String(a.sentAt || "").localeCompare(String(b.sentAt || "")));
+}
+
+function callRecordToChatMessage(row) {
+  const callId = row.call_id || row.callId || "";
+  const chatId = row.chat_id || row.chatId || "";
+  if (!callId || !chatId) return null;
+  const direction = String(row.direction || "").toLowerCase() === "incoming" ? "incoming" : "outgoing";
+  const status = String(row.status || "").toLowerCase();
+  const startedAt = row.started_at || row.startedAt || row.ended_at || row.endedAt || new Date().toISOString();
+  return {
+    id: `call-${callId}`,
+    chatId,
+    senderVid: direction === "outgoing" ? Auth.getVid() : Utils.normalizeVid(row.other_vid || row.otherVid || ""),
+    senderName: row.other_name || row.otherName || "",
+    isMine: direction === "outgoing",
+    contentType: "system",
+    content: `${direction === "outgoing" ? "Outgoing" : "Incoming"} voice call - ${callHistoryStatusLabel(status)} - ${formatChatCallDuration(row.duration_seconds ?? row.durationSeconds ?? 0)}`,
+    sentAt: startedAt,
+    deliveredAt: startedAt,
+    seenAt: "",
+    editedAt: "",
+    deletedAt: "",
+    localOnly: false,
+    failed: false,
+    callDirection: direction,
+    callStatus: status,
+  };
+}
+
+function callHistoryStatusLabel(status) {
+  const labels = {
+    connected: "Ended",
+    ended: "Ended",
+    declined: "Declined",
+    cancelled: "Cancelled",
+    missed: "Missed",
+    busy: "Busy",
+    failed: "Failed",
+    ringing: "No answer",
+    accepted: "Ended",
+  };
+  return labels[String(status || "").toLowerCase()] || "Ended";
+}
+
+function formatChatCallDuration(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  const rest = total % 60;
+  return minutes ? `${minutes}m ${rest}s` : `${rest}s`;
 }
 
 function scrollToBottom() {

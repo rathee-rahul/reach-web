@@ -258,7 +258,7 @@ const Api = {
   setContactName: (sessionToken, contactVid, name) => callFunction("set-contact-name", { session_token: sessionToken, contact_vid: contactVid, name }),
 
   listRequests: (sessionToken) => callFunction("list-requests", { session_token: sessionToken }),
-  respondRequest: (sessionToken, requestId, accept) => callFunction("respond-request", { session_token: sessionToken, request_id: requestId, accept }),
+  respondRequest: (sessionToken, requestId, accept) => callFunction("respond-request", { session_token: sessionToken, request_id: requestId, action: accept ? "accept" : "decline" }),
 
   listMessages: (sessionToken, chatId) => callFunction("list-messages", { session_token: sessionToken, chat_id: chatId }),
   sendMessage: (sessionToken, chatId, content) => {
